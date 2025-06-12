@@ -1,7 +1,7 @@
 const config = {
     type: Phaser.AUTO,
-    width: 800,
-    height: 600,
+    width: window.innerWidth,
+    height: window.innerHeight,
     backgroundColor: '#1d1d1d',
     physics: {
         default: 'arcade',
@@ -14,10 +14,13 @@ const config = {
         preload,
         create,
         update
-    }
+    },
+    scale: {
+        mode: Phaser.Scale.RESIZE,
+        autoCenter: Phaser.Scale.CENTER_BOTH
+    },
+    parent: 'game-container'
 };
-
-const game = new Phaser.Game(config);
 
 let player;
 let cursors;
@@ -25,6 +28,8 @@ let keys;
 let jumpCount = 0;
 const maxJumps = 2;
 let isAttacking = false;
+
+const game = new Phaser.Game(config);
 
 function preload() {
     this.load.image('bg', 'assets/00016.png');
@@ -35,12 +40,13 @@ function preload() {
 }
 
 function create() {
+    // Background ajustado para tela cheia
     this.add.image(0, 0, 'bg')
     .setOrigin(0, 0)
     .setDisplaySize(this.sys.game.config.width, this.sys.game.config.height);
 
-
-    player = this.physics.add.sprite(100, 450, 'adventurer', 0).setScale(2);
+    // Player com tamanho ajustado para tela cheia
+    player = this.physics.add.sprite(100, this.sys.game.config.height - 200, 'adventurer', 0).setScale(4);
     player.setCollideWorldBounds(true);
 
     this.anims.create({
@@ -88,7 +94,8 @@ function create() {
         attack: Phaser.Input.Keyboard.KeyCodes.ENTER
     });
 
-    const ground = this.add.rectangle(400, 580, 800, 40, 0x1a2b2f);
+    // Chão ajustado para a largura total da tela
+    const ground = this.add.rectangle(this.sys.game.config.width / 2, this.sys.game.config.height - 30, this.sys.game.config.width, 60, 0x1a2b2f);
     this.physics.add.existing(ground, true);
 
     this.physics.add.collider(player, ground, () => {
