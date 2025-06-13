@@ -13,7 +13,7 @@ const config = {
             debug: false
         }
     },
-    scene: [CenaIntro, MundoNormal]
+    scene: [CenaIntro, MundoNormal] 
 };
 
 const game = new Phaser.Game(config);
