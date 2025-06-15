@@ -4,39 +4,78 @@ export default class MundoNormal extends Phaser.Scene {
     }
 
     preload() {
-        this.load.image('bg', 'assets/00016.png');
+        this.load.image('AllSprites', 'assets/AllSprites.png');
+        this.load.tilemapTiledJSON('mapa', 'assets/mapa.json');
+
         this.load.spritesheet('adventurer', 'assets/adventurer-Sheet.png', {
             frameWidth: 50,
             frameHeight: 37
         });
+
         this.load.spritesheet('hearts', 'assets/Hearts.png', {
-    frameWidth: 15,
-    frameHeight: 15
-});
+            frameWidth: 15,
+            frameHeight: 15
+        });
     }
 
     create() {
-        this.add.image(0, 0, 'bg')
-            .setOrigin(0, 0)
-            .setDisplaySize(this.sys.game.config.width, this.sys.game.config.height);
+        const map = this.make.tilemap({ key: 'mapa' });
+        const tileset = map.addTilesetImage('AllSprites', 'AllSprites');
 
-        this.player = this.physics.add.sprite(100, 500, 'adventurer', 0).setScale(2);
+        const layer1 = map.createLayer('Camada de Blocos 1', tileset, 0, 0);
+        const layer2 = map.createLayer('Camada de Blocos 2', tileset, 0, 0);
+        const layer3 = map.createLayer('Camada de Blocos 3', tileset, 0, 0);
+        const layer4 = map.createLayer('Camada de Blocos 4', tileset, 0, 0);
+        const layer5 = map.createLayer('Camada de Blocos 5', tileset, 0, 0);
+        const layer6 = map.createLayer('Camada de Blocos 6', tileset, 0, 0);
+
+        if (layer1) {
+            layer1.setCollisionByExclusion([-1]);
+        }
+
+       
+        let spawnX = 0;
+        let spawnY = 0;
+        for (let x = 0; x < map.width; x++) {
+            for (let y = 0; y < map.height; y++) {
+                const tile = layer1.getTileAt(x, y);
+                if (tile && tile.index !== -1) {
+                    spawnX = map.tileToWorldX(x) + map.tileWidth / 2;
+                    spawnY = map.tileToWorldY(y) - (37 * 2) / 2;
+                    break;
+                }
+            }
+            if (spawnY !== 0) break;
+        }
+        this.player = this.physics.add.sprite(spawnX, spawnY, 'adventurer', 0).setScale(2)
         this.player.setCollideWorldBounds(true);
-        
-        this.missaoTitulo = this.add.text(30, 200, '📜 Missão', {
-    fontFamily: 'Arial',
-    fontSize: '18px',
-    fill: '#ffff66',
-    fontStyle: 'bold'
-}).setScrollFactor(0);
 
-this.missaoTexto = this.add.text(30, 225, '☐ Encontrar e salvar Lira', {
-    fontFamily: 'Arial',
-    fontSize: '16px',
-    fill: '#ffffff',
-    lineSpacing: 6
-}).setScrollFactor(0);
+        this.physics.add.collider(this.player, layer1, () => {
+            this.jumpCount = 0;
+        });
 
+      
+        const mapWidth = map.widthInPixels;
+        const mapHeight = map.heightInPixels;
+
+        this.scale.resize(mapWidth, mapHeight);
+        this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
+        this.physics.world.setBounds(0, 0, mapWidth, mapHeight);
+        this.cameras.main.startFollow(this.player);
+
+        this.missaoTitulo = this.add.text(20, 80, '📜 Missão', {
+            fontFamily: 'Arial',
+            fontSize: '18px',
+            fill: '#ffff66',
+            fontStyle: 'bold'
+        }).setScrollFactor(0);
+
+        this.missaoTexto = this.add.text(10, 105, '☐ Encontrar e salvar Lira', {
+            fontFamily: 'Arial',
+            fontSize: '16px',
+            fill: '#ffffff',
+            lineSpacing: 6
+        }).setScrollFactor(0);
 
         this.anims.create({
             key: 'idle',
@@ -82,36 +121,32 @@ this.missaoTexto = this.add.text(30, 225, '☐ Encontrar e salvar Lira', {
             attack: Phaser.Input.Keyboard.KeyCodes.ENTER
         });
 
-        const ground = this.add.rectangle(400, 580, 800, 40, 0x1a2b2f);
-        this.physics.add.existing(ground, true);
-        this.physics.add.collider(this.player, ground, () => {
-            this.jumpCount = 0;
-        });
-
         this.jumpCount = 0;
         this.maxJumps = 2;
         this.isAttacking = false;
 
         this.maxLives = 4;
-this.currentLives = 4;
-this.heartIcons = [];
+        this.currentLives = 4;
+        this.heartIcons = [];
 
-for (let i = 0; i < this.maxLives; i++) {
-    const heart = this.add.sprite(20 + i * 12, 20, 'hearts', 0).setScale(2).setScrollFactor(0);
-    this.heartIcons.push(heart);
-}
-this.updateHearts = () => {
-    for (let i = 0; i < this.maxLives; i++) {
-        const frame = i < this.currentLives ? 0 : 1;
-        this.heartIcons[i].setFrame(frame);
-    }
-};
-if (this.currentLives > 0) {
-    this.currentLives--;
-    this.updateHearts();
-}
+        for (let i = 0; i < this.maxLives; i++) {
+            const heart = this.add.sprite(20 + i * 12, 20, 'hearts', 0).setScale(2).setScrollFactor(0);
+            this.heartIcons.push(heart);
+        }
 
+        this.updateHearts = () => {
+            for (let i = 0; i < this.maxLives; i++) {
+                const frame = i < this.currentLives ? 0 : 1;
+                this.heartIcons[i].setFrame(frame);
+            }
+        };
 
+        if (this.currentLives > 0) {
+            this.currentLives--;
+            this.updateHearts();
+        }
+
+        console.log("Camadas válidas:", map.layers.map(l => l.name));
     }
 
     update() {
