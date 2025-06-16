@@ -12,17 +12,22 @@ export default class CenaIntro extends Phaser.Scene {
     }
 
     create() {
-        this.add.image(0, 0, 'bg')
-            .setOrigin(0, 0)
-            .setDisplaySize(this.sys.game.config.width, this.sys.game.config.height);
+        // Pega as dimensões da câmera para posicionamento relativo
+        const { width, height } = this.cameras.main;
 
-        this.spriteEron = this.add.image(150, 400, 'eron1')
+        // Fundo ocupa a tela toda
+        this.add.image(width / 2, height / 2, 'bg')
             .setOrigin(0.5)
+            .setDisplaySize(width, height);
+
+        // Personagens posicionados de forma relativa
+        this.spriteEron = this.add.image(width * 0.25, height * 0.8, 'eron1')
+            .setOrigin(0.5, 1) // Alinhado pela base
             .setScale(0.5)
             .setVisible(false);
 
-        this.spriteLira = this.add.image(650, 400, 'lira1')
-            .setOrigin(0.5)
+        this.spriteLira = this.add.image(width * 0.75, height * 0.8, 'lira1')
+            .setOrigin(0.5, 1) // Alinhado pela base
             .setScale(0.5)
             .setVisible(false);
 
@@ -43,20 +48,25 @@ export default class CenaIntro extends Phaser.Scene {
 
         this.dialogoAtual = 0;
 
-        this.caixa = this.add.rectangle(400, 500, 750, 150, 0x000000, 0.7)
+        // Caixa de diálogo com tamanho e posição relativos
+        const caixaAltura = 150;
+        const caixaLargura = width * 0.9;
+        this.caixa = this.add.rectangle(width / 2, height - (caixaAltura / 2) - 20, caixaLargura, caixaAltura, 0x000000, 0.7)
             .setOrigin(0.5)
             .setStrokeStyle(2, 0xffffff);
 
-        this.nomePersonagem = this.add.text(70, 430, '', {
+        // Posição do texto relativa à caixa de diálogo
+        const paddingTexto = 25;
+        this.nomePersonagem = this.add.text(this.caixa.x - caixaLargura / 2 + paddingTexto, this.caixa.y - caixaAltura / 2 + paddingTexto - 10, '', {
             font: '20px Arial',
             fill: '#80dfff',
             fontStyle: 'bold'
         });
 
-        this.textoDialogo = this.add.text(70, 460, '', {
+        this.textoDialogo = this.add.text(this.nomePersonagem.x, this.nomePersonagem.y + 30, '', {
             font: '18px Arial',
             fill: '#ffffff',
-            wordWrap: { width: 660 }
+            wordWrap: { width: caixaLargura - (paddingTexto * 2) }
         });
 
         this.input.on('pointerdown', () => {
@@ -93,7 +103,7 @@ export default class CenaIntro extends Phaser.Scene {
 
             this.dialogoAtual++;
         } else {
-            this.scene.start('CenaJogo');
+            this.scene.start('CenaJogo'); // Mudei aqui para uma cena de jogo mais provável
         }
     }
 }
