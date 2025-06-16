@@ -8,9 +8,11 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.load.image('Background', 'assets/Background1.png');
         this.load.image('dark_castle_tileset', 'assets/dark_castle_tileset.png');
         this.load.tilemapTiledJSON('mapa5', 'assets/mundosombrio2.json');
+        this.load.image('heart', 'assets/Hearts.png');
         this.load.spritesheet('portal', 'assets/Portal_100x100px.png', { frameWidth: 100, frameHeight: 100 });
 
-        this.load.spritesheet('hearts', 'assets/Hearts.png', { frameWidth: 15, frameHeight: 15 });
+
+
         this.load.spritesheet('itens', 'assets/rpgItems.png', { frameWidth: 16, frameHeight: 16 });
         this.load.spritesheet('inimigos', 'assets/enemies-spritesheet.png', { frameWidth: 16, frameHeight: 16 });
         this.load.spritesheet('adventurer', 'assets/adventurer-Sheet.png', { frameWidth: 50, frameHeight: 37 });
@@ -57,12 +59,14 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.player.setCollideWorldBounds(true);
         this.physics.add.collider(this.player, layer1);
 
-        this.maxLives = 4;
-        this.heartIcons = [];
-        for (let i = 0; i < this.maxLives; i++) {
-            const heart = this.add.sprite(20 + i * 12, 20, 'hearts', 0).setScale(2).setScrollFactor(0);
-            this.heartIcons.push(heart);
-        }
+        this.maxLives = 3;
+        this.heartIcon = this.add.image(20, 20, 'heart').setScale(0.3).setScrollFactor(0);
+this.vidaTexto = this.add.text(40, 10, `${this.currentLives}/${this.maxLives}`, {
+    fontSize: '16px',
+    fill: '#ffffff',
+    fontFamily: 'Arial'
+}).setScrollFactor(0);
+
 
         this.textoFragmento = this.add.text(90, 10, `Fragmentos: ${this.fragmentosColetados}/3`, {
             fontSize: '16px', fill: '#ffffff', fontFamily: 'Arial'
@@ -165,18 +169,17 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
     }
 
     updateHearts() {
-        for (let i = 0; i < this.maxLives; i++) {
-            const frame = i < this.currentLives ? 0 : 1;
-            this.heartIcons[i].setFrame(frame);
-        }
-
-        if (this.currentLives <= 0) {
-            gameState.mundoAtual = 'MapaSombrio2';
-            gameState.fragmentosColetados = this.fragmentosColetados;
-            gameState.vidas = this.currentLives;
-            this.scene.start('GameOverScene');
-        }
+    if (this.vidaTexto) {
+        this.vidaTexto.setText(`${this.currentLives}/${this.maxLives}`);
     }
+
+    if (this.currentLives <= 0) {
+        gameState.mundoAtual = 'MapaSombrio2';
+        gameState.fragmentosColetados = this.fragmentosColetados;
+        gameState.vidas = this.currentLives;
+        this.scene.start('GameOverScene');
+    }
+}
 
     createAnimations() {
         if (!this.anims.exists('portal_anim')) {

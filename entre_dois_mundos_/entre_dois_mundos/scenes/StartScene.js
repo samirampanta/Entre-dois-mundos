@@ -13,18 +13,24 @@ export default class StartScene extends Phaser.Scene {
   }
 
   create() {
-    this.add.image(400, 300, 'background')
-      .setOrigin(0.5)
-      .setDisplaySize(this.sys.game.config.width, this.sys.game.config.height);
+    // Pega as dimensões da câmera para posicionamento relativo
+    const { width, height } = this.cameras.main;
 
-    this.add.image(400, 140, 'logo')
+    // Fundo ocupa a tela toda
+    this.add.image(width / 2, height / 2, 'background')
       .setOrigin(0.5)
-      .setScale(0.21);
+      .setDisplaySize(width, height);
 
+    // Logo posicionado no topo da tela
+    this.add.image(width / 2, height * 0.25, 'logo')
+      .setOrigin(0.5)
+      .setScale(0.25);
+
+    // Partículas ocupam toda a área da tela
     const particles = this.add.particles('particle');
     particles.createEmitter({
-      x: { min: 0, max: 800 },
-      y: { min: 0, max: 600 },
+      x: { min: 0, max: width },
+      y: { min: 0, max: height },
       lifespan: 3500,
       speedY: { min: 20, max: 70 },
       scale: { start: 0.02, end: 0 },
@@ -32,14 +38,14 @@ export default class StartScene extends Phaser.Scene {
       blendMode: 'ADD'
     });
 
-    const posX = 400;
-    const posY = 320;          
-    const espacamento = 95;
-    const escala = 0.2;
+    // Posições e espaçamento relativos para os botões
+    const buttonCenterY = height * 0.50;
+    const espacamento = 150;
+    const escala = 0.3;
 
-    this.createButton(posX, posY, 'btnIniciar', escala, () => this.scene.start('CenaIntro'));
-    this.createButton(posX, posY + espacamento, 'btnInstrucoes', escala, () => this.scene.start('InstructionsScene'));
-    this.createButton(posX, posY + espacamento * 2, 'btnCreditos', escala, () => this.scene.start('CreditsScene'));
+    this.createButton(width / 2, buttonCenterY, 'btnIniciar', escala, () => this.scene.start('CenaIntro'));
+    this.createButton(width / 2, buttonCenterY + espacamento, 'btnInstrucoes', escala, () => this.scene.start('InstructionsScene'));
+    this.createButton(width / 2, buttonCenterY + espacamento * 2, 'btnCreditos', escala, () => this.scene.start('CreditsScene'));
   }
 
   createButton(x, y, key, scale, callback) {

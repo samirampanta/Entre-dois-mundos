@@ -1,4 +1,6 @@
 import StartScene from './scenes/StartScene.js';
+import InstructionsScene from './scenes/InstructionsScene.js';
+import CreditsScene from './scenes/CreditsScene.js';
 import CenaIntro from './CenaIntro.js';
 import MundoNormal from './MundoNormalScene.js';
 import MundoNormalScene_1 from './MundoNormalScene_1.js';
@@ -7,6 +9,8 @@ import MundoSombrio from './MundoSombrio.js';
 import MundoSombrio2 from './MundoSombrio2.js';
 import Boss from './Boss.js';
 import GameOverScene from './GameOverScene.js';
+import WinScene from './WinScene.js';
+
 
 const config = {
     type: Phaser.AUTO,
@@ -23,10 +27,10 @@ const config = {
         default: 'arcade',
         arcade: {
             gravity: { y: 600 },
-            debug: true // Mantenha 'false' na versão final
+            debug: false
         }
     },
-    scene: [ StartScene, CenaIntro, MundoNormal, MundoNormalScene_1, MundoNormalScene_2, MundoSombrio, MundoSombrio2, Boss, GameOverScene ]
+    scene: [ StartScene, CenaIntro, MundoNormal, MundoNormalScene_1, MundoNormalScene_2, MundoSombrio, MundoSombrio2, Boss, GameOverScene, WinScene ]
 };
 
 const game = new Phaser.Game(config);

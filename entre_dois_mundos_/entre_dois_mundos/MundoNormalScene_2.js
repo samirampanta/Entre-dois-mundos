@@ -8,7 +8,7 @@ class Orc extends Phaser.Physics.Arcade.Sprite {
         this.speed = 50;
         this.direction = 1;
         this.layer = layer;
-        this.setBodySize(30, 32);
+        this.setBodySize(30, 35);
         this.setOffset(30, 14);
         this.health = 3;
         this.isDead = false;
@@ -52,7 +52,8 @@ export default class MundoNormalScene_2 extends Phaser.Scene {
     }
 
     create(data) {
-        this.currentLives = data?.vidas ?? 4;
+        this.maxLives = 3;
+        this.currentLives = data?.vidas ?? 3;
         this.fragmentosColetados = data?.fragmentosColetados || 0;
 
         const map = this.make.tilemap({ key: 'mapa2' });
@@ -139,11 +140,12 @@ export default class MundoNormalScene_2 extends Phaser.Scene {
             lineSpacing: 6
         }).setScrollFactor(0);
 
-        this.maxLives = 3;
         this.heartIcon = this.add.image(20, 20, 'heart').setScale(0.3).setScrollFactor(0);
-        this.vidaTexto = this.add.text(40, 10, `${this.currentLives}/${this.maxLives}`, {
-            fontSize: '16px', fill: '#ffffff', fontFamily: 'Arial'
-        }).setScrollFactor(0);
+this.vidaTexto = this.add.text(40, 10, `${this.currentLives}/${this.maxLives}`, {
+    fontSize: '16px',
+    fill: '#ffffff',
+    fontFamily: 'Arial'
+}).setScrollFactor(0);
 
         this.updateHearts();
 
@@ -153,20 +155,34 @@ export default class MundoNormalScene_2 extends Phaser.Scene {
         this.orcs.add(orc1);
         this.orcs.add(orc2);
         this.physics.add.collider(this.orcs, layer1);
-        this.physics.add.overlap(this.player, this.orcs, () => {
-            console.log('Jogador colidiu com orc!');
-        }, null, this);
+        this.player.isInvulnerable = false;
+
+this.physics.add.overlap(this.player, this.orcs, (player, orc) => {
+    if (!this.player.isInvulnerable && !orc.isDead) {
+        this.currentLives--;
+        this.updateHearts();
+        this.player.isInvulnerable = true;
+
+        this.time.delayedCall(1000, () => {
+            this.player.isInvulnerable = false;
+        });
+    }
+}, null, this);
+
     }
 
     updateHearts() {
-        if (this.vidaTexto) {
-            this.vidaTexto.setText(`${this.currentLives}/${this.maxLives}`);
-        }
-        if (this.currentLives <= 0) {
-            gameState.mundoAtual = 'Mapa2';
-            this.scene.start('GameOverScene');
-        }
+    if (this.vidaTexto) {
+        this.vidaTexto.setText(`${this.currentLives}/${this.maxLives}`);
     }
+
+    if (this.currentLives <= 0) {
+        gameState.mundoAtual = 'Mapa2';
+        gameState.fragmentosColetados = this.fragmentosColetados;
+        gameState.vidas = this.currentLives;
+        this.scene.start('GameOverScene');
+    }
+}
 
     createAnimations() {
         if (!this.anims.exists('portal_anim')) {
@@ -200,7 +216,7 @@ export default class MundoNormalScene_2 extends Phaser.Scene {
     transicaoParaMapa() {
         this.cameras.main.fadeOut(500, 0, 0, 0);
         this.cameras.main.once('camerafadeoutcomplete', () => {
-            this.scene.restart(); // ou trocar para a próxima cena correta se necessário
+            this.scene.restart();
         });
     }
 
