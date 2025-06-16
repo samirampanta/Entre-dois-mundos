@@ -8,6 +8,7 @@ class GameOverScene extends Phaser.Scene {
 
      preload() {
     this.load.image('gameover-bg', 'assets/gameover_screen_fixed.png');
+    this.load.audio('gameover_music', 'assets/sounds/gameover.mp3');
 }
 
     create() {
@@ -19,6 +20,13 @@ class GameOverScene extends Phaser.Scene {
         this.add.image(width / 2, height / 2, 'gameover-bg')
             .setOrigin(0.5)
             .setDisplaySize(width, height);
+            
+            
+        this.music = this.sound.add('gameover_music', {
+         volume: 0.5,
+         loop: false
+            });
+        this.music.play();
 
     
         this.add.text(width / 2, height / 2 + 40, `Fragmentos coletados:\n${gameState.fragmentosColetados}/${gameState.fragmentosTotal}`, {
@@ -77,6 +85,7 @@ class GameOverScene extends Phaser.Scene {
 
       
         const btnReiniciar = criarBotaoPixelArt('Reiniciar Fase', () => {
+            this.music.stop();
     
     gameState.vidas = 3;
    
@@ -91,6 +100,7 @@ class GameOverScene extends Phaser.Scene {
 
 
         const btnMenu = criarBotaoPixelArt('Menu Principal', () => {
+            this.music.stop();
             this.scene.start('StartScene');
         });
 

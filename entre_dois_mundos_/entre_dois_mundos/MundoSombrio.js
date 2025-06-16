@@ -46,12 +46,14 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.inimigo.health = 1;
         this.inimigo.isAttacking = false;
 
-        this.orc = this.physics.add.sprite(700, 5, 'orc').setScale(2);
+        this.orc = this.physics.add.sprite(800, 5, 'orc').setScale(2);
         this.orc.play('orcAndando');
         this.orc.setCollideWorldBounds(true);
         this.orc.health = 3;
         this.orc.isDead = false;
         this.orc.isAttacking = false;
+        this.orc.setSize(30, 30);  
+        this.orc.setOffset(40, 25);
         this.physics.add.collider(this.orc, layer1);
 
         this.player = this.physics.add.sprite(100, 100, 'adventurer', 0).setScale(2);

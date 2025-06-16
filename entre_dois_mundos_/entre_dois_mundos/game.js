@@ -27,7 +27,7 @@ const config = {
         default: 'arcade',
         arcade: {
             gravity: { y: 600 },
-            debug: false
+            debug: false // Mantenha 'false' na versão final
         }
     },
     scene: [ StartScene, CenaIntro, MundoNormal, MundoNormalScene_1, MundoNormalScene_2, MundoSombrio, MundoSombrio2, Boss, GameOverScene, WinScene ]
