@@ -1,15 +1,14 @@
 export default class MundoNormalScene_1 extends Phaser.Scene {
     constructor() {
-        super({ key: 'MapaSombrio2' });
+        super({ key: 'MapaSombrio' });
     }
 
     preload() {
         this.load.image('AllSprites', 'assets/AllSprites.png');
         this.load.image('Background', 'assets/Background1.png');
         this.load.image('dark_castle_tileset', 'assets/dark_castle_tileset.png');
-        this.load.tilemapTiledJSON('mapa5', 'assets/mundosombrio2.json');
+        this.load.tilemapTiledJSON('mapa3', 'assets/mundosombrio1.json');
         this.load.image('heart', 'assets/Hearts.png');
-        this.load.spritesheet('portal', 'assets/Portal_100x100px.png', { frameWidth: 100, frameHeight: 100 });
 
         this.load.spritesheet('itens', 'assets/rpgItems.png', { frameWidth: 16, frameHeight: 16 });
         this.load.spritesheet('inimigos', 'assets/enemies-spritesheet.png', { frameWidth: 16, frameHeight: 16 });
@@ -27,8 +26,6 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
     create(data) {
         this.currentLives = data?.vidas ?? 3;
         this.fragmentosColetados = data?.fragmentosColetados || 0;
-        this.portalUsado = false;
-        this.timerMensagem = null;
 
         // ===== CONFIGURAÇÃO DE ÁUDIO =====
         this.setupAudio();
@@ -38,19 +35,20 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.stepTimer = 0;
         this.stepInterval = 400;
 
-        const map = this.make.tilemap({ key: 'mapa5' });
+        const map = this.make.tilemap({ key: 'mapa3' });
         const tileset = map.addTilesetImage('AllSprites', 'AllSprites');
         const tileset2 = map.addTilesetImage('Background', 'Background');
         const tileset3 = map.addTilesetImage('dark_castle_tileset', 'dark_castle_tileset');
 
-        map.createLayer('Camada de Blocos 2', tileset2, 0, 0);
-        map.createLayer('Camada de Blocos 3', tileset3, 0, 0);
+        const layer2 = map.createLayer('Camada de Blocos 2', tileset2, 0, 0);
+        const layer3 = map.createLayer('Camada de Blocos 3', tileset3, 0, 0);
         const layer1 = map.createLayer('Camada de Blocos 1', tileset3, 0, 0);
 
-        if (layer1) layer1.setCollisionByExclusion([-1]);
+        if (layer1) {
+            layer1.setCollisionByExclusion([-1]);
+        }
 
-        const fragmento1 = this.physics.add.staticSprite(560, 40, 'itens', 24).setScale(1.5);
-        const fragmento2 = this.physics.add.staticSprite(70, 50, 'itens', 24).setScale(1.5);
+        const fragmento = this.physics.add.staticSprite(560, 40, 'itens', 24).setScale(1.5);
 
         this.inimigo = this.physics.add.sprite(300, 100, 'inimigos').setScale(2);
         this.inimigo.play('andarInimigo');
@@ -62,7 +60,7 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.inimigo.isDead = false;
         this.inimigo.isAttacking = false;
 
-        this.orc = this.physics.add.sprite(700, 5, 'orc').setScale(2);
+        this.orc = this.physics.add.sprite(800, 5, 'orc').setScale(2);
         this.orc.play('orcAndando');
         this.orc.setCollideWorldBounds(true);
         this.orc.health = 3;
@@ -79,21 +77,19 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
 
         this.setupUI();
 
-        // ===== SONS AO COLETAR FRAGMENTOS =====
-        [fragmento1, fragmento2].forEach(fragmento => {
-            this.physics.add.overlap(this.player, fragmento, () => {
-                fragmento.destroy();
-                this.fragmentosColetados++;
-                this.textoFragmento.setText(`Fragmentos: ${this.fragmentosColetados}/3`);
-                
-                // TOCAR SOM DE COLETA
-                this.sounds.collect.play();
-            });
-        });
+        // ===== SOM AO COLETAR FRAGMENTO =====
+        this.physics.add.overlap(this.player, fragmento, () => {
+            fragmento.destroy();
+            this.fragmentosColetados++;
+            this.textoFragmento.setText(`Fragmentos: ${this.fragmentosColetados}/3`);
+            
+            // TOCAR SOM DE COLETA
+            this.sounds.collect.play();
+        }, null, this);
 
         this.player.isInvulnerable = false;
 
-        // ===== COLISÕES COM SOM =====
+        // ===== COLISÃO COM INIMIGO COM SOM =====
         this.physics.add.overlap(this.player, this.inimigo, () => {
             if (!this.player.isInvulnerable && !this.inimigo.isDead) {
                 this.currentLives--;
@@ -105,8 +101,9 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
                 this.player.isInvulnerable = true;
                 this.time.delayedCall(1000, () => this.player.isInvulnerable = false);
             }
-        });
+        }, null, this);
 
+        // ===== COLISÃO COM ORC COM SOM =====
         this.physics.add.overlap(this.player, this.orc, () => {
             if (!this.player.isInvulnerable && !this.orc.isDead) {
                 this.orc.play('orcAtacando', true);
@@ -119,7 +116,7 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
                 this.player.isInvulnerable = true;
                 this.time.delayedCall(1000, () => this.player.isInvulnerable = false);
             }
-        });
+        }, null, this);
 
         const mapWidth = map.widthInPixels;
         const mapHeight = map.heightInPixels;
@@ -142,8 +139,7 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.transicaoFeita = false;
         this.isAttacking = false;
 
-        this.createAnimations();
-        this.setupPortal();
+        this.setupAnimations();
     }
 
     // ===== CONFIGURAÇÃO DE ÁUDIO =====
@@ -157,7 +153,7 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         };
 
         this.stepSoundPlaying = false;
-        console.log("Sistema de áudio configurado - MapaSombrio2!");
+        console.log("Sistema de áudio configurado - MapaSombrio!");
     }
 
     // ===== CONTROLE DE SOM DE PASSOS =====
@@ -194,7 +190,7 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
             fill: '#ffffff',
             fontFamily: 'Arial'
         }).setScrollFactor(0);
-
+        
         this.textoFragmento = this.add.text(90, 10, `Fragmentos: ${this.fragmentosColetados}/3`, {
             fontSize: '16px', fill: '#ffffff', fontFamily: 'Arial'
         }).setScrollFactor(0);
@@ -210,27 +206,17 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.updateHearts();
     }
 
-    setupPortal() {
-        this.portal = this.physics.add.staticSprite(700, 100, 'portal');
-        this.portal.play('portal_anim');
-
-        this.mensagemPortal = this.add.text(400, 300, 'Colete todos os fragmentos para usar o portal!', {
-            fontSize: '20px',
-            fill: '#ff0000',
-            fontFamily: 'Arial',
-            backgroundColor: '#000000',
-            padding: { x: 15, y: 5 },
-            align: 'center'
-        }).setOrigin(0.5).setScrollFactor(0).setAlpha(0);
-
-        this.physics.add.overlap(this.player, this.portal, () => {
-            if (this.fragmentosColetados >= 3 && !this.portalUsado) {
-                this.portalUsado = true;
-                this.transicaoParaProximoMapa();
-            } else if (!this.portalUsado) {
-                this.exibirMensagemPortal();
-            }
-        });
+    setupAnimations() {
+        this.anims.create({ key: 'andarInimigo', frames: this.anims.generateFrameNumbers('inimigos', { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
+        this.anims.create({ key: 'inimigoMorrendo', frames: this.anims.generateFrameNumbers('inimigos', { start: 4, end: 5 }), frameRate: 6, repeat: 0 });
+        this.anims.create({ key: 'idle', frames: this.anims.generateFrameNumbers('adventurer', { start: 0, end: 3 }), frameRate: 6, repeat: -1 });
+        this.anims.create({ key: 'run', frames: this.anims.generateFrameNumbers('adventurer', { start: 8, end: 13 }), frameRate: 12, repeat: -1 });
+        this.anims.create({ key: 'jump', frames: this.anims.generateFrameNumbers('adventurer', { start: 22, end: 22 }), frameRate: 1, repeat: 0 });
+        this.anims.create({ key: 'fall', frames: this.anims.generateFrameNumbers('adventurer', { start: 23, end: 23 }), frameRate: 1, repeat: 0 });
+        this.anims.create({ key: 'attack', frames: this.anims.generateFrameNumbers('adventurer', { start: 52, end: 55 }), frameRate: 10, repeat: 0 });
+        this.anims.create({ key: 'orcAndando', frames: this.anims.generateFrameNumbers('orc', { start: 0, end: 3 }), frameRate: 6, repeat: -1 });
+        this.anims.create({ key: 'orcAtacando', frames: this.anims.generateFrameNumbers('orc', { start: 4, end: 7 }), frameRate: 8, repeat: -1 });
+        this.anims.create({ key: 'orcMorrendo', frames: this.anims.generateFrameNumbers('orc', { start: 8, end: 11 }), frameRate: 8, repeat: 0 });
     }
 
     updateHearts() {
@@ -239,65 +225,9 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         }
 
         if (this.currentLives <= 0) {
-            gameState.mundoAtual = 'MapaSombrio2';
-            gameState.fragmentosColetados = this.fragmentosColetados;
-            gameState.vidas = this.currentLives;
+            gameState.mundoAtual = 'MapaSombrio';
             this.scene.start('GameOverScene');
         }
-    }
-
-    createAnimations() {
-        if (!this.anims.exists('portal_anim')) {
-            this.anims.create({
-                key: 'portal_anim',
-                frames: this.anims.generateFrameNumbers('portal', { start: 0, end: 40 }),
-                frameRate: 8,
-                repeat: -1
-            });
-        }
-        
-        if (!this.anims.exists('andarInimigo')) {
-            this.anims.create({ key: 'andarInimigo', frames: this.anims.generateFrameNumbers('inimigos', { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
-            this.anims.create({ key: 'inimigoMorrendo', frames: this.anims.generateFrameNumbers('inimigos', { start: 4, end: 5 }), frameRate: 6, repeat: 0 });
-            this.anims.create({ key: 'idle', frames: this.anims.generateFrameNumbers('adventurer', { start: 0, end: 3 }), frameRate: 6, repeat: -1 });
-            this.anims.create({ key: 'run', frames: this.anims.generateFrameNumbers('adventurer', { start: 8, end: 13 }), frameRate: 12, repeat: -1 });
-            this.anims.create({ key: 'jump', frames: this.anims.generateFrameNumbers('adventurer', { start: 22, end: 22 }), frameRate: 1, repeat: 0 });
-            this.anims.create({ key: 'fall', frames: this.anims.generateFrameNumbers('adventurer', { start: 23, end: 23 }), frameRate: 1, repeat: 0 });
-            this.anims.create({ key: 'attack', frames: this.anims.generateFrameNumbers('adventurer', { start: 52, end: 55 }), frameRate: 10, repeat: 0 });
-            this.anims.create({ key: 'orcAndando', frames: this.anims.generateFrameNumbers('orc', { start: 0, end: 3 }), frameRate: 6, repeat: -1 });
-            this.anims.create({ key: 'orcAtacando', frames: this.anims.generateFrameNumbers('orc', { start: 4, end: 7 }), frameRate: 8, repeat: -1 });
-            this.anims.create({ key: 'orcMorrendo', frames: this.anims.generateFrameNumbers('orc', { start: 8, end: 11 }), frameRate: 8, repeat: 0 });
-        }
-    }
-
-    exibirMensagemPortal() {
-        this.mensagemPortal.setAlpha(1);
-        if (this.timerMensagem) this.timerMensagem.remove();
-        this.timerMensagem = this.time.delayedCall(3000, () => {
-            this.mensagemPortal.setAlpha(0);
-        });
-    }
-
-    transicaoParaProximoMapa() {
-        // ===== PARAR TODOS OS SONS ANTES DA TRANSIÇÃO =====
-        if (this.stepSoundPlaying) {
-            this.sounds.step.stop();
-            this.stepSoundPlaying = false;
-        }
-        
-        Object.values(this.sounds).forEach(sound => {
-            if (sound.isPlaying) {
-                sound.stop();
-            }
-        });
-        
-        this.cameras.main.fadeOut(500, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => {
-            this.scene.start('Boss', {
-                vidas: this.currentLives,
-                fragmentosColetados: this.fragmentosColetados
-            });
-        });
     }
 
     transicaoParaMapa() {

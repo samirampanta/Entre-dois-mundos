@@ -10,13 +10,12 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.load.tilemapTiledJSON('mapa4', 'assets/mapaboss_embutido.json');
         this.load.image('lira', 'assets/lira_presa.png');
         this.load.image('heart', 'assets/Hearts.png');
-        
 
         this.load.spritesheet('itens', 'assets/rpgItems.png', { frameWidth: 16, frameHeight: 16 });
         this.load.spritesheet('inimigos', 'assets/enemies-spritesheet.png', { frameWidth: 16, frameHeight: 16 });
         this.load.spritesheet('adventurer', 'assets/adventurer-Sheet.png', { frameWidth: 50, frameHeight: 37 });
         
-         for (let i = 1; i <= 6; i++) {
+        for (let i = 1; i <= 6; i++) {
             this.load.image(`demon_idle_${i}`, `assets/boss/01_demon_idle/demon_idle_${i}.png`);
         }
         for (let i = 1; i <= 12; i++) {
@@ -32,14 +31,34 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
             this.load.image(`demon_death_${i}`, `assets/boss/05_demon_death/demon_death_${i}.png`);
         }
 
+        // ===== CARREGAMENTO DOS SONS DO BOSS =====
+        this.load.audio('stepSound', 'assets/sounds/andar.wav');
+        this.load.audio('jumpSound', 'assets/sounds/pulo.wav');
+        this.load.audio('attackSound', 'assets/sounds/ataque.wav');
+        this.load.audio('damageSound', 'assets/sounds/dano.wav');
+        this.load.audio('collectSound', 'assets/sounds/fragmento.wav');
+        // this.load.audio('bossBgMusic', 'assets/sounds/boss_music.mp3'); // Adicione se tiver música épica
+        // this.load.audio('bossAttackSound', 'assets/sounds/boss_attack.wav'); // Som específico do boss
+        // this.load.audio('bossDeathSound', 'assets/sounds/boss_death.wav'); // Som de morte do boss
+        // this.load.audio('victorySound', 'assets/sounds/victory.wav'); // Som de vitória
     }
 
     create(data) {
         this.currentLives = data?.vidas ?? 3;
+        
+        // ===== CONFIGURAÇÃO DE ÁUDIO DO BOSS =====
+        this.setupBossAudio();
+        
+        // ===== CONFIGURAÇÃO DE SOM DE PASSOS =====
+        this.isWalking = false;
+        this.stepTimer = 0;
+        this.stepInterval = 400;
+        
         const map = this.make.tilemap({ key: 'mapa4' });
         const tileset = map.addTilesetImage('AllSprites', 'AllSprites');
         const tileset3 = map.addTilesetImage('dark_castle_tileset', 'dark_castle_tileset');
 
+        // ===== ADICIONAR COLISÃO COM LAYER1 =====
         const layer1 = map.createLayer('Camada de Blocos 1', tileset3, 0, 0);
         map.createLayer('Camada de Blocos 2', tileset3, 0, 0);
         map.createLayer('Camada de Blocos 3', tileset3, 0, 0);
@@ -47,10 +66,13 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
 
         layer1.setCollisionByExclusion([-1]);
 
+        // ===== ARMAZENAR LAYER1 PARA USO POSTERIOR =====
+        this.layer1 = layer1;
+
         this.player = this.physics.add.sprite(100, 100, 'adventurer', 0).setScale(2);
         this.player.setBodySize(20, 24);
         this.player.setCollideWorldBounds(true);
-        this.physics.add.collider(this.player, layer1);
+        this.physics.add.collider(this.player, this.layer1);
         this.player.isInvulnerable = false;
 
         this.inimigo = this.physics.add.sprite(500, 100, 'inimigos').setScale(2);
@@ -58,12 +80,13 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.inimigo.setVelocityX(50);
         this.inimigo.setBounce(1, 0);
         this.inimigo.setCollideWorldBounds(true);
-        this.physics.add.collider(this.inimigo, layer1);
+        this.physics.add.collider(this.inimigo, this.layer1);
         this.inimigo.health = 1;
         this.inimigo.isDead = false;
         this.inimigo.isAttacking = false;
 
         this.lira = this.physics.add.staticImage(730, 30, 'lira').setScale(0.05);
+        
         this.physics.add.overlap(this.player, this.lira, () => {
             this.missaoTexto.setText('☑ Encontrar e salvar Lira');
         }, null, this);
@@ -75,6 +98,75 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
 
         this.time.delayedCall(4000, () => this.liraDialogo.setVisible(false));
 
+        this.setupUI();
+        this.setupControls();
+        this.setupAnimations();
+        this.setupDemon();
+        this.setupOverlaps();
+        this.setupLiraSave();
+
+        const mapWidth = map.widthInPixels;
+        const mapHeight = map.heightInPixels;
+        this.scale.resize(mapWidth, mapHeight);
+        this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
+        this.physics.world.setBounds(0, 0, mapWidth, mapHeight);
+        this.cameras.main.startFollow(this.player);
+        this.cameras.main.shake(500, 0.01);
+
+        this.orc = null;
+    }
+
+    // ===== CONFIGURAÇÃO DE ÁUDIO DO BOSS =====
+    setupBossAudio() {
+        this.bossAudio = {
+            // bgMusic: this.sound.add('bossBgMusic', { volume: 0.4, loop: true }),
+            // bossAttack: this.sound.add('bossAttackSound', { volume: 0.6 }),
+            // bossDeath: this.sound.add('bossDeathSound', { volume: 0.8 }),
+            playerDamage: this.sound.add('damageSound', { volume: 0.7 }),
+            step: this.sound.add('stepSound', { volume: 0.3 }),
+            jump: this.sound.add('jumpSound', { volume: 0.5 }),
+            attack: this.sound.add('attackSound', { volume: 0.5 }),
+            collect: this.sound.add('collectSound', { volume: 0.6 })
+            // victory: this.sound.add('victorySound', { volume: 0.9 })
+        };
+
+        this.stepSoundPlaying = false;
+        
+        // Iniciar música épica do boss (se disponível)
+        // if (this.bossAudio.bgMusic) {
+        //     this.bossAudio.bgMusic.play();
+        // }
+        
+        console.log("Sistema de áudio do BOSS configurado!");
+    }
+
+    // ===== CONTROLE DE SOM DE PASSOS =====
+    updateStepSound() {
+        const currentTime = this.time.now;
+        
+        const isActuallyMoving = this.isWalking && 
+                                this.player.body.blocked.down && 
+                                Math.abs(this.player.body.velocity.x) > 50;
+        
+        if (isActuallyMoving) {
+            if (!this.stepSoundPlaying && currentTime - this.stepTimer > this.stepInterval) {
+                this.bossAudio.step.play();
+                this.stepTimer = currentTime;
+                this.stepSoundPlaying = true;
+                
+                this.time.delayedCall(300, () => {
+                    this.stepSoundPlaying = false;
+                });
+            }
+        } else {
+            if (this.stepSoundPlaying) {
+                this.bossAudio.step.stop();
+                this.stepSoundPlaying = false;
+            }
+        }
+    }
+
+    setupUI() {
         this.heartIcon = this.add.image(20, 20, 'heart').setScale(0.3).setScrollFactor(0);
         this.vidaTexto = this.add.text(40, 10, `${this.currentLives}/3`, {
             fontSize: '16px', fill: '#ffffff', fontFamily: 'Arial'
@@ -87,15 +179,9 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.missaoTexto = this.add.text(10, 105, '☐ Encontrar e salvar Lira', {
             fontFamily: 'Arial', fontSize: '16px', fill: '#ffffff', lineSpacing: 6
         }).setScrollFactor(0);
+    }
 
-        const mapWidth = map.widthInPixels;
-        const mapHeight = map.heightInPixels;
-        this.scale.resize(mapWidth, mapHeight);
-        this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
-        this.physics.world.setBounds(0, 0, mapWidth, mapHeight);
-        this.cameras.main.startFollow(this.player);
-        this.cameras.main.shake(500, 0.01);
-
+    setupControls() {
         this.cursors = this.input.keyboard.createCursorKeys();
         this.keys = this.input.keyboard.addKeys({
             up: Phaser.Input.Keyboard.KeyCodes.W,
@@ -105,28 +191,14 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
             attack: Phaser.Input.Keyboard.KeyCodes.ENTER,
             salvar: Phaser.Input.Keyboard.KeyCodes.E
         });
-        
 
         this.jumpCount = 0;
         this.maxJumps = 2;
         this.transicaoFeita = false;
         this.isAttacking = false;
+    }
 
-        this.liraSalva = false;
-        this.salvarTexto = this.add.text(this.lira.x, this.lira.y - 10, 'Pressione [E] para salvar Lira', {
-            fontFamily: 'Arial', fontSize: '14px', fill: '#ffff00', backgroundColor: '#000000',
-            padding: { x: 6, y: 4 }
-        }).setOrigin(0.5).setScrollFactor(0).setVisible(false);
-        if (Phaser.Input.Keyboard.JustDown(this.keys.salvar)) {
-    this.liraSalva = true;
-    this.salvarTexto.setText('Lira foi salva!');
-    this.salvarTexto.setStyle({ fill: '#00ff00' });
-    this.time.delayedCall(1500, () => {
-        this.scene.start('WinScene');
-    });
-}
-
-       
+    setupAnimations() {
         this.anims.create({ key: 'andarInimigo', frames: this.anims.generateFrameNumbers('inimigos', { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
         this.anims.create({ key: 'inimigoMorrendo', frames: this.anims.generateFrameNumbers('inimigos', { start: 4, end: 5 }), frameRate: 6, repeat: 0 });
         this.anims.create({ key: 'idle', frames: this.anims.generateFrameNumbers('adventurer', { start: 0, end: 3 }), frameRate: 6, repeat: -1 });
@@ -169,116 +241,108 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
             frameRate: 6,
             repeat: 0
         });
+    }
 
-        this.demon = this.physics.add.sprite(300, 100, 'demon_idle_1').setScale(1);
+    setupDemon() {
+        // ===== POSIÇÃO CORRIGIDA DO BOSS NO CHÃO =====
+        this.demon = this.physics.add.sprite(400, 350, 'demon_idle_1').setScale(1.5);
         this.demon.play('demonAndando');
         this.demon.setCollideWorldBounds(true);
-        this.demon.setSize(50, 80);
-        this.demon.setOffset(120, 60);
-        this.demon.health = 20;
+        this.demon.setSize(80, 120);
+        this.demon.setOffset(100, 40);
+        this.demon.health = 50;
+        this.demon.maxHealth = 50;
         this.demon.isDead = false;
         this.demon.isAttacking = false;
         this.demon.isBoss = true;
-        this.physics.add.collider(this.demon, layer1);
+        this.demon.attackCooldown = 0;
+        
+        // ===== CONFIGURAR FÍSICA PARA FICAR NO CHÃO =====
+        this.demon.body.setGravityY(300);
+        this.demon.setDepth(1);
+        
+        // ===== BARRA DE VIDA DO BOSS REMOVIDA =====
+        // Não criar mais barra de vida nem nome do boss
+        
+        console.log(`Boss criado na posição: x=${this.demon.x}, y=${this.demon.y}, no chão sem barra de vida`);
+    }
 
-
-        this.barraVidaBossBG = this.add.graphics().setScrollFactor(0);
-this.barraVidaBossFG = this.add.graphics().setScrollFactor(0);
-
-this.barraVidaBossBG.fillStyle(0x000000);
-this.barraVidaBossBG.fillRect(this.cameras.main.width / 2 - 230, 10, 300, 20);
-
-this.atualizarBarraVidaBoss();
-
-
-
+    setupOverlaps() {
+        // ===== COLISÃO COM BOSS - SÓ ATACA MUITO PERTO =====
         this.physics.add.overlap(this.player, this.demon, () => {
-            if (!this.player.isInvulnerable && !this.demon.isDead && !this.demon.isAttacking) {
-                this.demon.isAttacking = true;
-                this.demon.play('demonAtacando', true);
-                this.currentLives--;
-                this.updateHearts();
-                this.player.isInvulnerable = true;
-
-                this.time.delayedCall(1000, () => {
-                    this.player.isInvulnerable = false;
-                });
-
-                this.demon.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
-                    this.demon.isAttacking = false;
-                    if (!this.demon.isDead) {
-                        this.demon.play('demonAndando', true);
+            if (!this.player.isInvulnerable && !this.demon.isDead) {
+                // ===== BOSS SÓ ATACA SE ESTIVER MUITO MUITO PERTO =====
+                const distancia = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.demon.x, this.demon.y);
+                
+                if (distancia < 60 && !this.demon.isAttacking && this.time.now > this.demon.attackCooldown) {
+                    // SÓ ATACA SE ESTIVER MUITO PERTO (30 pixels)
+                    this.demon.isAttacking = true;
+                    this.demon.setVelocityX(0); // Parar movimento durante ataque
+                    
+                    // ===== VIRAR PARA O PLAYER ANTES DE ATACAR - CORRIGIDO =====
+                    if (this.player.x > this.demon.x) {
+                        this.demon.setFlipX(true); // INVERTIDO: Olhar para direita (com flip)
+                    } else {
+                        this.demon.setFlipX(false); // INVERTIDO: Olhar para esquerda (sem flip)
                     }
-                });
+                    
+                    this.demon.play('demonAtacando', true);
+                    this.demon.attackCooldown = this.time.now + 2000; // Cooldown de 2 segundos
+                    
+                    this.currentLives--;
+                    this.updateHearts();
+                    
+                    // ===== SOM DE DANO DO PLAYER =====
+                    this.bossAudio.playerDamage.play();
+                    
+                    this.player.isInvulnerable = true;
+
+                    this.time.delayedCall(1000, () => {
+                        this.player.isInvulnerable = false;
+                    });
+
+                    this.demon.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+                        this.demon.isAttacking = false;
+                        if (!this.demon.isDead) {
+                            this.demon.play('demonAndando', true);
+                        }
+                    });
+                }
+                // SE NÃO ESTIVER MUITO PERTO, BOSS NÃO ATACA MAS CONTINUA PERSEGUINDO
             }
         }, null, this);
 
-
-        this.orc = null;
+        // ===== COLISÃO COM INIMIGO PEQUENO =====
+        this.physics.add.overlap(this.player, this.inimigo, () => {
+            if (!this.player.isInvulnerable && !this.inimigo.isDead) {
+                this.currentLives--;
+                this.updateHearts();
+                
+                // ===== SOM DE DANO =====
+                this.bossAudio.playerDamage.play();
+                
+                this.player.isInvulnerable = true;
+                this.time.delayedCall(1000, () => this.player.isInvulnerable = false);
+            }
+        }, null, this);
     }
 
-    update() {
-        const limiteDireita = 750;
-
-        if (this.player.body.blocked.down) this.jumpCount = 0;
-
-        if (Phaser.Input.Keyboard.JustDown(this.keys.attack)) {
-            this.player.anims.play('attack', true);
-            this.player.setVelocityX(0);
-            this.isAttacking = true;
-            return;
-        }
-
-        if (this.isAttacking) {
-    this.verificarDanoInimigos(); // Verifica a cada frame durante o ataque
-
-    if (!this.player.anims.isPlaying || this.player.anims.currentAnim.key !== 'attack') {
-        this.isAttacking = false;
-    }
-
-    return;
-}
-
-
-        this.movimentarJogador();
-
-        if (!this.transicaoFeita && this.player.x >= limiteDireita) {
-            this.transicaoFeita = true;
-            this.transicaoParaMapa();
-        }
-
-        this.atualizarInimigo(this.inimigo);
-        if (this.orc) this.atualizarInimigo(this.orc);
-        this.atualizarInimigo(this.demon);
-
-       
-       if (!this.liraSalva) {
-    const distLira = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.lira.x, this.lira.y);
-    if (distLira < 60) {
-        this.salvarTexto.setVisible(true);
-
-        if (Phaser.Input.Keyboard.JustDown(this.keys.salvar)) {
-            this.liraSalva = true;
-            this.salvarTexto.setText('Lira foi salva!');
-            this.salvarTexto.setStyle({ fill: '#00ff00' });
-
-            this.time.delayedCall(1500, () => {
-                this.scene.start('WinScene');
-            });
-        }
-    } else {
-        this.salvarTexto.setVisible(false);
-    }
-} else {
-   
-    this.salvarTexto.setVisible(false);
-}
-
+    setupLiraSave() {
+        this.liraSalva = false;
+        this.salvarTexto = this.add.text(this.lira.x, this.lira.y - 10, 'Pressione [E] para salvar Lira', {
+            fontFamily: 'Arial', fontSize: '14px', fill: '#ffff00', backgroundColor: '#000000',
+            padding: { x: 6, y: 4 }
+        }).setOrigin(0.5).setScrollFactor(0).setVisible(false);
     }
 
     updateHearts() {
         if (this.vidaTexto) this.vidaTexto.setText(`${this.currentLives}/3`);
         if (this.currentLives <= 0) {
+            // ===== PARAR MÚSICA DO BOSS AO MORRER =====
+            // if (this.bossAudio.bgMusic) {
+            //     this.bossAudio.bgMusic.stop();
+            // }
+            
             gameState.mundoAtual = 'Boss';
             gameState.vidas = this.currentLives;
             this.scene.start('GameOverScene');
@@ -286,6 +350,18 @@ this.atualizarBarraVidaBoss();
     }
 
     transicaoParaMapa() {
+        // ===== PARAR TODOS OS SONS ANTES DA TRANSIÇÃO =====
+        if (this.stepSoundPlaying) {
+            this.bossAudio.step.stop();
+            this.stepSoundPlaying = false;
+        }
+        
+        Object.values(this.bossAudio).forEach(sound => {
+            if (sound && sound.isPlaying) {
+                sound.stop();
+            }
+        });
+        
         this.cameras.main.fadeOut(500, 0, 0, 0);
         this.cameras.main.once('camerafadeoutcomplete', () => {
             this.scene.start('MapaSombrio2', {
@@ -300,18 +376,38 @@ this.atualizarBarraVidaBoss();
     movimentarJogador() {
         let isMoving = false;
 
+        // ===== MOVIMENTO COM SOM DE PASSOS =====
         if (this.cursors.left.isDown || this.keys.left.isDown) {
             this.player.setVelocityX(-160);
             this.player.flipX = true;
             isMoving = true;
+            this.isWalking = true;
         } else if (this.cursors.right.isDown || this.keys.right.isDown) {
             this.player.setVelocityX(160);
             this.player.flipX = false;
             isMoving = true;
+            this.isWalking = true;
         } else {
             this.player.setVelocityX(0);
+            this.isWalking = false;
+            
+            // PARAR SOM DE PASSOS IMEDIATAMENTE
+            if (this.stepSoundPlaying) {
+                this.bossAudio.step.stop();
+                this.stepSoundPlaying = false;
+            }
         }
 
+        // ===== VERIFICAÇÃO ADICIONAL =====
+        if (!isMoving || Math.abs(this.player.body.velocity.x) < 50) {
+            this.isWalking = false;
+            if (this.stepSoundPlaying) {
+                this.bossAudio.step.stop();
+                this.stepSoundPlaying = false;
+            }
+        }
+
+        // ===== PULO COM SOM =====
         const isJumpPressed = Phaser.Input.Keyboard.JustDown(this.cursors.up) ||
             Phaser.Input.Keyboard.JustDown(this.keys.up) || Phaser.Input.Keyboard.JustDown(this.keys.space);
 
@@ -319,6 +415,9 @@ this.atualizarBarraVidaBoss();
             this.player.setVelocityY(-350);
             this.player.anims.play('jump', true);
             this.jumpCount++;
+            
+            // ===== SOM DE PULO =====
+            this.bossAudio.jump.play();
         } else if (!this.player.body.blocked.down) {
             this.player.anims.play(this.player.body.velocity.y < 0 ? 'jump' : 'fall', true);
         } else if (isMoving) {
@@ -328,53 +427,158 @@ this.atualizarBarraVidaBoss();
         }
     }
 
-
-
     atualizarBarraVidaBoss() {
-    const larguraMax = 200;
-    const vidaMax = 10;
-    const vidaAtual = Math.max(this.demon.health, 0);
-    const larguraAtual = (vidaAtual / vidaMax) * larguraMax;
-
-    this.barraVidaBossFG.clear();
-    this.barraVidaBossFG.fillStyle(0xff0000);
-    this.barraVidaBossFG.fillRect(this.cameras.main.width / 2 - 230, 10, larguraAtual, 20);
-}
+        // ===== FUNÇÃO REMOVIDA - NÃO FAZ MAIS NADA =====
+        // Barra de vida do boss foi removida
+    }
 
     verificarDanoInimigos() {
         const atacar = (alvo) => {
             if (alvo && !alvo.isDead) {
                 const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, alvo.x, alvo.y);
-                if (dist < 40) {
-                    alvo.health--;
-                     if (alvo === this.demon) this.atualizarBarraVidaBoss();
-                    if (alvo.health <= 0) {
-                        alvo.isDead = true;
-                        alvo.setVelocityX(0);
-                        const animKey = `${alvo.texture.key}Morrendo`;
-                        if (alvo.anims && alvo.anims.animationManager.exists(animKey)) {
-                            alvo.play(animKey, true);
+                if (dist < 60) {
+                    alvo.health -= 2; // Dano maior no boss
+                    
+                    if (alvo === this.demon) {
+                        // ===== BOSS TOMOU DANO =====
+                        this.atualizarBarraVidaBoss();
+                        
+                        if (alvo.health > 0) {
+                            alvo.play('demonDano', true);
+                            
+                            // Voltar para animação normal após tomar dano
+                            alvo.once('animationcomplete', () => {
+                                if (!alvo.isDead && !alvo.isAttacking) {
+                                    alvo.play('demonAndando', true);
+                                }
+                            });
+                        }
+                        
+                        console.log(`Boss tomou dano! Vida restante: ${alvo.health}`);
+                        
+                        if (alvo.health <= 0) {
+                            // ===== BOSS MORREU =====
+                            alvo.isDead = true;
+                            alvo.setVelocityX(0);
+                            
+                            console.log("🎉 BOSS DERROTADO!");
+                            
+                            // Remover interface do boss
+                            if (this.bossNome) this.bossNome.destroy();
+                            if (this.barraVidaBossBG) this.barraVidaBossBG.destroy();
+                            if (this.barraVidaBossFG) this.barraVidaBossFG.destroy();
+                            if (this.vidaBossTexto) this.vidaBossTexto.destroy();
+                            
+                            // ===== ANIMAÇÃO DE MORTE ESPECÍFICA DO BOSS =====
+                            alvo.play('demonMorrendo', true);
                             alvo.once('animationcomplete', () => alvo.destroy());
-                        } else {
-                            alvo.destroy();
+                        }
+                        
+                    } else if (alvo === this.inimigo) {
+                        // ===== INIMIGO PEQUENO TOMOU DANO =====
+                        console.log(`Inimigo pequeno tomou dano! Vida restante: ${alvo.health}`);
+                        
+                        if (alvo.health <= 0) {
+                            alvo.isDead = true;
+                            alvo.setVelocityX(0);
+                            
+                            // ===== ANIMAÇÃO DE MORTE ESPECÍFICA DO INIMIGO =====
+                            alvo.play('inimigoMorrendo', true);
+                            alvo.once('animationcomplete', () => alvo.destroy());
+                        }
+                        
+                    } else {
+                        // ===== OUTROS INIMIGOS =====
+                        if (alvo.health <= 0) {
+                            alvo.isDead = true;
+                            alvo.setVelocityX(0);
+                            
+                            // Tentar animação específica do tipo
+                            const animKey = `${alvo.texture.key}Morrendo`;
+                            if (alvo.anims && alvo.anims.animationManager.exists(animKey)) {
+                                alvo.play(animKey, true);
+                                alvo.once('animationcomplete', () => alvo.destroy());
+                            } else {
+                                alvo.destroy(); // Destruir imediatamente se não houver animação
+                            }
                         }
                     }
                 }
             }
         };
-        atacar(this.inimigo);
-        atacar(this.demon);
+        
+        // Atacar inimigos na ordem correta
+        if (this.inimigo) atacar(this.inimigo);
+        if (this.demon) atacar(this.demon);
         if (this.orc) atacar(this.orc);
     }
 
     atualizarInimigo(inimigo) {
         if (!inimigo || inimigo.isDead) return;
 
+        // ===== INTELIGÊNCIA ESPECÍFICA DO BOSS =====
+        if (inimigo === this.demon) {
+            const dist = Phaser.Math.Distance.Between(inimigo.x, inimigo.y, this.player.x, this.player.y);
+            
+            // ===== BOSS SEMPRE PERSEGUE O PLAYER (range aumentado) =====
+            if (!inimigo.isAttacking && dist < 500) {
+                const speed = 60;
+                const distanciaMinima = 15; // ZONA MORTA para evitar oscilação
+                
+                // ===== MOVIMENTAÇÃO CORRIGIDA COM ZONA MORTA =====
+                if (this.player.x > inimigo.x + distanciaMinima) {
+                    // Player está à DIREITA do boss (com margem)
+                    inimigo.setVelocityX(speed);
+                    inimigo.setFlipX(true); // Boss olha para DIREITA
+                } else if (this.player.x < inimigo.x - distanciaMinima) {
+                    // Player está à ESQUERDA do boss (com margem)
+                    inimigo.setVelocityX(-speed);
+                    inimigo.setFlipX(false); // Boss olha para ESQUERDA
+                } else {
+                    // Player está na ZONA MORTA - boss para
+                    inimigo.setVelocityX(0);
+                }
+                
+                // Tocar animação baseada no movimento
+                if (Math.abs(inimigo.body.velocity.x) > 5) {
+                    // Se está se movendo, animar caminhada
+                    if (inimigo.anims.currentAnim?.key !== 'demonAndando') {
+                        inimigo.play('demonAndando', true);
+                    }
+                } else {
+                    // Se está parado, animar idle
+                    if (inimigo.anims.currentAnim?.key !== 'demonIdle') {
+                        inimigo.play('demonIdle', true);
+                    }
+                }
+                
+            } else if (!inimigo.isAttacking) {
+                // Parar movimento se MUITO longe
+                inimigo.setVelocityX(0);
+                if (inimigo.anims.currentAnim?.key !== 'demonIdle') {
+                    inimigo.play('demonIdle', true);
+                }
+            }
+            
+            // ===== GARANTIR QUE BOSS FIQUE NO CHÃO =====
+            if (inimigo.y < 300) {
+                inimigo.body.setVelocityY(100);
+            }
+            
+            return;
+        }
+
+        // ===== INTELIGÊNCIA DOS OUTROS INIMIGOS (mantém colisão normal) =====
         const dist = Phaser.Math.Distance.Between(inimigo.x, inimigo.y, this.player.x, this.player.y);
 
         if (dist < 150) {
-            inimigo.setVelocityX(inimigo.x < this.player.x ? 50 : -50);
-            inimigo.flipX = inimigo.x > this.player.x;
+            if (this.player.x > inimigo.x) {
+                inimigo.setVelocityX(50);
+                inimigo.flipX = false;
+            } else {
+                inimigo.setVelocityX(-50);
+                inimigo.flipX = true;
+            }
 
             if (dist < 40 && !inimigo.isAttacking) {
                 const anim = `${inimigo.texture.key}Atacando`;
@@ -396,5 +600,96 @@ this.atualizarBarraVidaBoss();
                 inimigo.play(anim, true);
             }
         }
+    }
+
+    update() {
+        const limiteDireita = 750;
+
+        if (this.player.body.blocked.down) this.jumpCount = 0;
+
+        // ===== ATAQUE COM SOM =====
+        if (Phaser.Input.Keyboard.JustDown(this.keys.attack)) {
+            this.player.anims.play('attack', true);
+            this.player.setVelocityX(0);
+            this.isAttacking = true;
+            
+            // ===== SOM DE ATAQUE =====
+            this.bossAudio.attack.play();
+            
+            return;
+        }
+
+        if (this.isAttacking) {
+            this.verificarDanoInimigos();
+
+            if (!this.player.anims.isPlaying || this.player.anims.currentAnim.key !== 'attack') {
+                this.isAttacking = false;
+            }
+
+            return;
+        }
+
+        this.movimentarJogador();
+
+        if (!this.transicaoFeita && this.player.x >= limiteDireita) {
+            this.transicaoFeita = true;
+            this.transicaoParaMapa();
+        }
+
+        this.atualizarInimigo(this.inimigo);
+        if (this.orc) this.atualizarInimigo(this.orc);
+        this.atualizarInimigo(this.demon);
+
+        // ===== SISTEMA DE SALVAR LIRA COM SOM =====
+        if (!this.liraSalva) {
+            const distLira = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.lira.x, this.lira.y);
+            if (distLira < 60) {
+                this.salvarTexto.setVisible(true);
+
+                if (Phaser.Input.Keyboard.JustDown(this.keys.salvar)) {
+                    this.liraSalva = true;
+                    this.salvarTexto.setText('Lira foi salva!');
+                    this.salvarTexto.setStyle({ fill: '#00ff00' });
+
+                    // ===== SOM DE SUCESSO =====
+                    this.bossAudio.collect.play();
+                    
+                    // ===== PARAR MÚSICA DO BOSS =====
+                    // if (this.bossAudio.bgMusic) {
+                    //     this.bossAudio.bgMusic.stop();
+                    // }
+
+                    this.time.delayedCall(1500, () => {
+                        // ===== SOM DE VITÓRIA =====
+                        // if (this.bossAudio.victory) {
+                        //     this.bossAudio.victory.play();
+                        // }
+                        
+                        this.time.delayedCall(1000, () => {
+                            // ===== PARAR TODOS OS SONS ANTES DA VITÓRIA =====
+                            if (this.stepSoundPlaying) {
+                                this.bossAudio.step.stop();
+                                this.stepSoundPlaying = false;
+                            }
+                            
+                            Object.values(this.bossAudio).forEach(sound => {
+                                if (sound && sound.isPlaying) {
+                                    sound.stop();
+                                }
+                            });
+                            
+                            this.scene.start('WinScene');
+                        });
+                    });
+                }
+            } else {
+                this.salvarTexto.setVisible(false);
+            }
+        } else {
+            this.salvarTexto.setVisible(false);
+        }
+
+        // ===== ATUALIZAR SOM DE PASSOS =====
+        this.updateStepSound();
     }
 }

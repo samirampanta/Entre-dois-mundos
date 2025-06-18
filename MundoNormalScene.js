@@ -6,6 +6,7 @@ export default class MundoNormal extends Phaser.Scene {
     preload() {
         this.load.image('AllSprites', 'assets/AllSprites.png');
         this.load.tilemapTiledJSON('mapa', 'assets/mapa.json');
+        
 
         this.load.spritesheet('adventurer', 'assets/adventurer-Sheet.png', {
             frameWidth: 50,
@@ -18,20 +19,32 @@ export default class MundoNormal extends Phaser.Scene {
         });
 
         this.load.spritesheet('itens', 'assets/rpgItems.png', {
-    frameWidth: 16,
-    frameHeight: 16
-    });
+            frameWidth: 16,
+            frameHeight: 16
+        });
 
-
-        
+        // ===== CARREGAMENTO DOS SONS =====
+        this.load.audio('stepSound', 'assets/sounds/andar.wav');
+        this.load.audio('jumpSound', 'assets/sounds/pulo.wav');
+        this.load.audio('collectSound', 'assets/sounds/fragmento.wav');
+        this.load.audio('damageSound', 'assets/sounds/dano.wav');
+        this.load.audio('attackSound', 'assets/sounds/ataque.wav');
     }
 
     create(data) {
         this.fragmentosColetados = data?.fragmentosColetados || 0;
         this.transicaoFeita = false;
+        
+        // ===== CONFIGURAÇÃO DE ÁUDIO =====
+        this.setupAudio();
+        
+        // ===== CONFIGURAÇÃO DE CONTROLE DE PASSOS =====
+        this.isWalking = false;
+        this.stepTimer = 0;
+        this.stepInterval = 400; // Intervalo entre passos em ms
+        
         const map = this.make.tilemap({ key: 'mapa' });
         const tileset = map.addTilesetImage('AllSprites', 'AllSprites');
-
 
         const layer1 = map.createLayer('Camada de Blocos 1', tileset, 0, 0);
         const layer2 = map.createLayer('Camada de Blocos 2', tileset, 0, 0);
@@ -42,13 +55,11 @@ export default class MundoNormal extends Phaser.Scene {
 
         this.fragmentosColetados = 0;
 
-        this.textoFragmento = this.add.text(90,  10, 'Fragmentos: 0/4', {
-        fontSize: '16px',
-        fill: '#ffffff',
-        fontFamily: 'Arial'
+        this.textoFragmento = this.add.text(90, 10, 'Fragmentos: 0/4', {
+            fontSize: '16px',
+            fill: '#ffffff',
+            fontFamily: 'Arial'
         }).setScrollFactor(0);
-
-
 
         const fragmento = this.physics.add.staticSprite(400, 130, 'itens', 26).setScale(1.5);
 
@@ -56,7 +67,6 @@ export default class MundoNormal extends Phaser.Scene {
             layer1.setCollisionByExclusion([-1]);
         }
 
-       
         let spawnX = 0;
         let spawnY = 0;
         for (let x = 0; x < map.width; x++) {
@@ -70,7 +80,8 @@ export default class MundoNormal extends Phaser.Scene {
             }
             if (spawnY !== 0) break;
         }
-        this.player = this.physics.add.sprite(spawnX, spawnY, 'adventurer', 0).setScale(2)
+        
+        this.player = this.physics.add.sprite(spawnX, spawnY, 'adventurer', 0).setScale(2);
         this.player.setBodySize(25, 30);
         this.player.setCollideWorldBounds(true);
 
@@ -78,14 +89,16 @@ export default class MundoNormal extends Phaser.Scene {
             this.jumpCount = 0;
         });
 
+        // ===== SOM AO COLETAR FRAGMENTO =====
         this.physics.add.overlap(this.player, fragmento, () => {
-    fragmento.destroy();
-    this.fragmentosColetados++;
-    this.textoFragmento.setText(`Fragmentos: ${this.fragmentosColetados}/4`);
-}, null, this);
+            fragmento.destroy();
+            this.fragmentosColetados++;
+            this.textoFragmento.setText(`Fragmentos: ${this.fragmentosColetados}/3`);
+            
+            // TOCAR SOM DE COLETA
+            this.sounds.collect.play();
+        }, null, this);
 
-
-      
         const mapWidth = map.widthInPixels;
         const mapHeight = map.heightInPixels;
 
@@ -108,6 +121,60 @@ export default class MundoNormal extends Phaser.Scene {
             lineSpacing: 6
         }).setScrollFactor(0);
 
+        this.setupAnimations();
+        this.setupControls();
+        this.setupPlayerStats();
+
+        console.log("Camadas válidas:", map.layers.map(l => l.name));
+    }
+
+    // ===== CONFIGURAÇÃO DE ÁUDIO =====
+    setupAudio() {
+        this.sounds = {
+            step: this.sound.add('stepSound', { volume: 0.3 }),
+            jump: this.sound.add('jumpSound', { volume: 0.5 }),
+            collect: this.sound.add('collectSound', { volume: 0.3 }),
+            damage: this.sound.add('damageSound', { volume: 0.7 }),
+            attack: this.sound.add('attackSound', { volume: 0.5 })
+        };
+
+        // Variável para controlar se o som de passos está tocando
+        this.stepSoundPlaying = false;
+
+        console.log("Sistema de áudio configurado!");
+    }
+
+    // ===== CONTROLE DE SOM DE PASSOS =====
+    updateStepSound() {
+        const currentTime = this.time.now;
+        
+        // Verificar se realmente está andando
+        const isActuallyMoving = this.isWalking && 
+                                this.player.body.blocked.down && 
+                                Math.abs(this.player.body.velocity.x) > 50;
+        
+        if (isActuallyMoving) {
+            // Só tocar se não estiver tocando e passou o intervalo
+            if (!this.stepSoundPlaying && currentTime - this.stepTimer > this.stepInterval) {
+                this.sounds.step.play();
+                this.stepTimer = currentTime;
+                this.stepSoundPlaying = true;
+                
+                // Parar o som após a duração do arquivo (aproximadamente 300ms)
+                this.time.delayedCall(300, () => {
+                    this.stepSoundPlaying = false;
+                });
+            }
+        } else {
+            // Se não está andando, parar qualquer som de passos
+            if (this.stepSoundPlaying) {
+                this.sounds.step.stop();
+                this.stepSoundPlaying = false;
+            }
+        }
+    }
+
+    setupAnimations() {
         this.anims.create({
             key: 'idle',
             frames: this.anims.generateFrameNumbers('adventurer', { start: 0, end: 3 }),
@@ -142,7 +209,9 @@ export default class MundoNormal extends Phaser.Scene {
             frameRate: 10,
             repeat: 0
         });
+    }
 
+    setupControls() {
         this.cursors = this.input.keyboard.createCursorKeys();
         this.keys = this.input.keyboard.addKeys({
             up: Phaser.Input.Keyboard.KeyCodes.W,
@@ -155,7 +224,9 @@ export default class MundoNormal extends Phaser.Scene {
         this.jumpCount = 0;
         this.maxJumps = 2;
         this.isAttacking = false;
+    }
 
+    setupPlayerStats() {
         this.maxLives = 4;
         this.currentLives = 4;
         this.heartIcons = [];
@@ -176,30 +247,54 @@ export default class MundoNormal extends Phaser.Scene {
             this.currentLives--;
             this.updateHearts();
         }
+    }
 
-        console.log("Camadas válidas:", map.layers.map(l => l.name));
+    // ===== FUNÇÃO PARA TOMAR DANO COM SOM =====
+    takeDamage() {
+        if (this.currentLives > 0) {
+            this.currentLives--;
+            this.updateHearts();
+            
+            // TOCAR SOM DE DANO
+            this.sounds.damage.play();
+            
+            if (this.currentLives <= 0) {
+                console.log("Game Over!");
+            }
+        }
     }
 
     transicaoParaMapa() {
-    this.cameras.main.fadeOut(500, 0, 0, 0); 
-    this.cameras.main.once('camerafadeoutcomplete', () => {
-        this.scene.start('Mapa1', {
-            voltarPeloLadoEsquerdo: false,
-            fragmentosColetados: this.fragmentosColetados
-        }, {
-            vidas: this.currentLives,
-            mapaAtual: 'mapa1.json'
+        // ===== PARAR TODOS OS SONS ANTES DA TRANSIÇÃO =====
+        if (this.stepSoundPlaying) {
+            this.sounds.step.stop();
+            this.stepSoundPlaying = false;
+        }
+        
+        // Parar qualquer outro som que possa estar tocando
+        Object.values(this.sounds).forEach(sound => {
+            if (sound.isPlaying) {
+                sound.stop();
+            }
         });
-    });
-}
-    
+        
+        this.cameras.main.fadeOut(500, 0, 0, 0); 
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+            this.scene.start('Mapa1', {
+                voltarPeloLadoEsquerdo: false,
+                fragmentosColetados: this.fragmentosColetados
+            }, {
+                vidas: this.currentLives,
+                mapaAtual: 'mapa1.json'
+            });
+        });
+    }
 
     update() {
         const limiteDireita = 750;
         if (!this.transicaoFeita && this.player.x >= limiteDireita) {
             this.transicaoFeita = true;
             console.log("Transição acionada para 'Mapa1'");
-            console.log("Transição acionada!");
             this.transicaoParaMapa();
             return;
         }
@@ -214,18 +309,38 @@ export default class MundoNormal extends Phaser.Scene {
             }
         }
 
+        // ===== MOVIMENTO COM SOM DE PASSOS =====
         if (this.cursors.left.isDown || this.keys.left.isDown) {
             this.player.setVelocityX(-160);
             this.player.flipX = true;
             isMoving = true;
+            this.isWalking = true;
         } else if (this.cursors.right.isDown || this.keys.right.isDown) {
             this.player.setVelocityX(160);
             this.player.flipX = false;
             isMoving = true;
+            this.isWalking = true;
         } else {
             this.player.setVelocityX(0);
+            this.isWalking = false;
+            
+            // PARAR SOM DE PASSOS IMEDIATAMENTE
+            if (this.stepSoundPlaying) {
+                this.sounds.step.stop();
+                this.stepSoundPlaying = false;
+            }
         }
 
+        // ===== VERIFICAÇÃO ADICIONAL =====
+        if (!isMoving || Math.abs(this.player.body.velocity.x) < 50) {
+            this.isWalking = false;
+            if (this.stepSoundPlaying) {
+                this.sounds.step.stop();
+                this.stepSoundPlaying = false;
+            }
+        }
+
+        // ===== PULO COM SOM =====
         const isJumpPressed = Phaser.Input.Keyboard.JustDown(this.cursors.up) ||
                               Phaser.Input.Keyboard.JustDown(this.keys.up) ||
                               Phaser.Input.Keyboard.JustDown(this.keys.space);
@@ -234,10 +349,16 @@ export default class MundoNormal extends Phaser.Scene {
             this.player.setVelocityY(-350);
             this.player.anims.play('jump', true);
             this.jumpCount++;
+            
+            // ===== TOCAR SOM DE PULO =====
+            this.sounds.jump.play();
         } else if (Phaser.Input.Keyboard.JustDown(this.keys.attack)) {
             this.isAttacking = true;
             this.player.anims.play('attack', true);
             this.player.setVelocityX(0);
+            
+            // ===== TOCAR SOM DE ATAQUE =====
+            this.sounds.attack.play();
         } else if (!this.player.body.blocked.down) {
             if (this.player.body.velocity.y < 0) {
                 this.player.anims.play('jump', true);
@@ -250,13 +371,12 @@ export default class MundoNormal extends Phaser.Scene {
             this.player.anims.play('idle', true);
         }
 
-if (!this.transicaoFeita && this.player.x >= limiteDireita) {
-            this.transicaoFeita = true;
-    console.log("Transição acionada!");
-            this.transicaoParaMapa();
-    return;
-}
+        // ===== ATUALIZAR SOM DE PASSOS =====
+        this.updateStepSound();
 
-    
+        // Teste de dano - pressione T para testar som de dano
+        if (Phaser.Input.Keyboard.JustDown(this.input.keyboard.addKey('T'))) {
+            this.takeDamage();
+        }
     }
 }
