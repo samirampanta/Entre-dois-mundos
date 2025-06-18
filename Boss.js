@@ -252,8 +252,8 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.demon.setCollideWorldBounds(true);
         this.demon.setSize(80, 150);
         this.demon.setOffset(100, 40);
-        this.demon.health = 100;
-        this.demon.maxHealth = 100;
+        this.demon.health = 50;
+        this.demon.maxHealth = 50;
         this.demon.isDead = false;
         this.demon.isAttacking = false;
         this.demon.isBoss = true;
@@ -274,9 +274,10 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.physics.add.overlap(this.player, this.demon, () => {
             if (!this.player.isInvulnerable && !this.demon.isDead) {
                 // ===== BOSS SÓ ATACA SE ESTIVER MUITO MUITO PERTO =====
-                const distancia = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.demon.x, this.demon.y);
-                
-                if (distancia < 60 && !this.demon.isAttacking && this.time.now > this.demon.attackCooldown) {
+               const dx = Math.abs(this.player.x - this.demon.x);
+const dy = Math.abs(this.player.y - this.demon.y);
+
+if (dx < 60 && dy < 80 && !this.demon.isAttacking && this.time.now > this.demon.attackCooldown) {
                     // SÓ ATACA SE ESTIVER MUITO PERTO (30 pixels)
                     this.demon.isAttacking = true;
                     this.demon.setVelocityX(0); // Parar movimento durante ataque
