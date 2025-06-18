@@ -343,6 +343,7 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
             //     this.bossAudio.bgMusic.stop();
             // }
             
+            gameState.fragmentosColetados = 3;
             gameState.mundoAtual = 'Boss';
             gameState.vidas = this.currentLives;
             this.scene.start('GameOverScene');
