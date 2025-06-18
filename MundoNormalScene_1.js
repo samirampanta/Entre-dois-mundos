@@ -34,6 +34,7 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.load.audio('collectSound', 'assets/sounds/fragmento.wav');
         this.load.audio('damageSound', 'assets/sounds/dano.wav');
         this.load.audio('attackSound', 'assets/sounds/ataque.wav');
+        this.load.audio('orcAttackSound', 'assets/sounds/orc.wav'); // ===== SOM DO ORC =====
     }
 
     create(data) {
@@ -124,6 +125,9 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
                     this.orc.setVelocityX(0);
                     this.orc.flipX = this.player.x < this.orc.x; // Virar para o player
                     
+                    // ===== TOCAR SOM DE ATAQUE DO ORC =====
+                    this.sounds.orcAttack.play();
+                    
                     // ===== MANTER POSIÇÃO Y FIXA DURANTE ATAQUE =====
                     const attackFixedY = this.orc.y;
                     
@@ -199,9 +203,10 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.sounds = {
             step: this.sound.add('stepSound', { volume: 0.3 }),
             jump: this.sound.add('jumpSound', { volume: 0.5 }),
-            collect: this.sound.add('collectSound', { volume: 0.3 }),
-            damage: this.sound.add('damageSound', { volume: 0.7 }),
-            attack: this.sound.add('attackSound', { volume: 0.5 })
+            collect: this.sound.add('collectSound', { volume: 0.2 }),
+            damage: this.sound.add('damageSound', { volume: 0.6 }),
+            attack: this.sound.add('attackSound', { volume: 0.5 }),
+            orcAttack: this.sound.add('orcAttackSound', { volume: 0.2 }) // ===== SOM DO ORC =====
         };
 
         this.stepSoundPlaying = false;
@@ -302,9 +307,13 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         if (this.vidaTexto) {
             this.vidaTexto.setText(`${this.currentLives}/${this.maxLives}`);
         }
-
+    
         if (this.currentLives <= 0) {
+            // ===== SALVAR ESTADO NO GAMESTATE GLOBAL =====
             gameState.mundoAtual = 'Mapa1';
+            gameState.fragmentosColetados = this.fragmentosColetados;
+            gameState.vidas = this.currentLives;
+            
             this.scene.start('GameOverScene');
         }
     }
