@@ -21,6 +21,7 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.load.audio('collectSound', 'assets/sounds/fragmento.wav');
         this.load.audio('damageSound', 'assets/sounds/dano.wav');
         this.load.audio('attackSound', 'assets/sounds/ataque.wav');
+        this.load.audio('orcAttackSound', 'assets/sounds/orc.wav'); // ===== SOM DO ORC =====
     }
 
     create(data) {
@@ -50,7 +51,8 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
 
         const fragmento = this.physics.add.staticSprite(560, 40, 'itens', 24).setScale(1.5);
 
-        this.inimigo = this.physics.add.sprite(300, 100, 'inimigos').setScale(2);
+        // ===== INIMIGO PEQUENO CORRIGIDO (TAMANHO ORIGINAL) =====
+        this.inimigo = this.physics.add.sprite(300, 100, 'inimigos').setScale(2); // ===== VOLTOU PARA SCALE 2 =====
         this.inimigo.play('andarInimigo');
         this.inimigo.setVelocityX(50);
         this.inimigo.setBounce(1, 0);
@@ -59,15 +61,28 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.inimigo.health = 1;
         this.inimigo.isDead = false;
         this.inimigo.isAttacking = false;
+        this.inimigo.lastHit = 0;
 
-        this.orc = this.physics.add.sprite(800, 5, 'orc').setScale(2);
+        // ===== CONFIGURAÇÃO CORRIGIDA DO ORC =====
+        this.orc = this.physics.add.sprite(600, 100, 'orc').setScale(2); // ===== POSIÇÃO E ESCALA CORRIGIDAS =====
         this.orc.play('orcAndando');
         this.orc.setCollideWorldBounds(true);
         this.orc.health = 3;
         this.orc.isDead = false;
         this.orc.isAttacking = false;
-        this.orc.setSize(30, 30);  
-        this.orc.setOffset(40, 25);
+        this.orc.lastHit = 0;
+        this.orc.patrolDirection = 1;
+        this.orc.lastDirectionChange = 0; // ===== CONTROLE DE MUDANÇA DE DIREÇÃO =====
+        
+        // ===== FÍSICA CORRIGIDA - HITBOX REALISTA =====
+        this.orc.setSize(50, 55);  // ===== HITBOX ESTÁVEL =====
+        this.orc.setOffset(25, 9); // ===== OFFSET PARA FICAR NO CHÃO =====
+        
+        // ===== GRAVIDADE E FÍSICA =====
+        this.orc.body.setGravityY(300);
+        this.orc.body.setMaxVelocity(200, 600);
+        this.orc.body.setDragX(100);
+        
         this.physics.add.collider(this.orc, layer1);
 
         this.player = this.physics.add.sprite(100, 100, 'adventurer', 0).setScale(2);
@@ -103,18 +118,53 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
             }
         }, null, this);
 
-        // ===== COLISÃO COM ORC COM SOM =====
+        // ===== COLISÃO COM ORC COM SOM E ANIMAÇÃO MELHORADA =====
         this.physics.add.overlap(this.player, this.orc, () => {
             if (!this.player.isInvulnerable && !this.orc.isDead) {
-                this.orc.play('orcAtacando', true);
-                this.currentLives--;
-                this.updateHearts();
-                
-                // ===== TOCAR SOM DE DANO =====
-                this.sounds.damage.play();
-                
-                this.player.isInvulnerable = true;
-                this.time.delayedCall(1000, () => this.player.isInvulnerable = false);
+                if (!this.orc.isAttacking) {
+                    this.orc.isAttacking = true;
+                    
+                    // ===== TOCAR SOM DE ATAQUE DO ORC =====
+                    this.sounds.orcAttack.play();
+                    
+                    this.orc.setVelocityX(0);
+                    this.orc.flipX = this.player.x < this.orc.x;
+                    
+                    const attackFixedY = this.orc.y;
+                    this.orc.play('orcAtacando', true);
+                    
+                    const attackTimer = this.time.addEvent({
+                        delay: 50,
+                        repeat: -1,
+                        callback: () => {
+                            if (this.orc && !this.orc.destroyed && this.orc.anims.currentAnim?.key === 'orcAtacando') {
+                                this.orc.setY(attackFixedY);
+                                this.orc.setVelocityX(0);
+                                this.orc.setVelocityY(0);
+                            }
+                        }
+                    });
+                    
+                    this.time.delayedCall(500, () => {
+                        if (!this.player.isInvulnerable && !this.orc.isDead) {
+                            this.currentLives--;
+                            this.updateHearts();
+                            
+                            this.sounds.damage.play();
+                            
+                            this.player.isInvulnerable = true;
+                            this.time.delayedCall(1000, () => this.player.isInvulnerable = false);
+                        }
+                    });
+                    
+                    this.orc.once('animationcomplete', () => {
+                        attackTimer.destroy();
+                        if (!this.orc.isDead) {
+                            this.orc.isAttacking = false;
+                            this.orc.play('orcAndando', true);
+                        }
+                    });
+                }
             }
         }, null, this);
 
@@ -147,9 +197,10 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.sounds = {
             step: this.sound.add('stepSound', { volume: 0.3 }),
             jump: this.sound.add('jumpSound', { volume: 0.5 }),
-            collect: this.sound.add('collectSound', { volume: 0.3 }),
-            damage: this.sound.add('damageSound', { volume: 0.7 }),
-            attack: this.sound.add('attackSound', { volume: 0.5 })
+            collect: this.sound.add('collectSound', { volume: 0.2 }),
+            damage: this.sound.add('damageSound', { volume: 0.6 }),
+            attack: this.sound.add('attackSound', { volume: 0.5 }),
+            orcAttack: this.sound.add('orcAttackSound', { volume: 0.2 }) // ===== SOM DO ORC =====
         };
 
         this.stepSoundPlaying = false;
@@ -207,25 +258,48 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
     }
 
     setupAnimations() {
-        this.anims.create({ key: 'andarInimigo', frames: this.anims.generateFrameNumbers('inimigos', { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
-        this.anims.create({ key: 'inimigoMorrendo', frames: this.anims.generateFrameNumbers('inimigos', { start: 4, end: 5 }), frameRate: 6, repeat: 0 });
+        this.anims.create({ key: 'andarInimigo', frames: this.anims.generateFrameNumbers('inimigos', { start: 24, end: 25 }), frameRate: 4, repeat: -1 });
+        this.anims.create({ key: 'inimigoMorrendo', frames: this.anims.generateFrameNumbers('inimigos', { start: 26, end: 27 }), frameRate: 6, repeat: 0 });
         this.anims.create({ key: 'idle', frames: this.anims.generateFrameNumbers('adventurer', { start: 0, end: 3 }), frameRate: 6, repeat: -1 });
         this.anims.create({ key: 'run', frames: this.anims.generateFrameNumbers('adventurer', { start: 8, end: 13 }), frameRate: 12, repeat: -1 });
         this.anims.create({ key: 'jump', frames: this.anims.generateFrameNumbers('adventurer', { start: 22, end: 22 }), frameRate: 1, repeat: 0 });
         this.anims.create({ key: 'fall', frames: this.anims.generateFrameNumbers('adventurer', { start: 23, end: 23 }), frameRate: 1, repeat: 0 });
         this.anims.create({ key: 'attack', frames: this.anims.generateFrameNumbers('adventurer', { start: 52, end: 55 }), frameRate: 10, repeat: 0 });
-        this.anims.create({ key: 'orcAndando', frames: this.anims.generateFrameNumbers('orc', { start: 0, end: 3 }), frameRate: 6, repeat: -1 });
-        this.anims.create({ key: 'orcAtacando', frames: this.anims.generateFrameNumbers('orc', { start: 4, end: 7 }), frameRate: 8, repeat: -1 });
-        this.anims.create({ key: 'orcMorrendo', frames: this.anims.generateFrameNumbers('orc', { start: 8, end: 11 }), frameRate: 8, repeat: 0 });
+        
+        // ===== ANIMAÇÕES CORRIGIDAS DO ORC =====
+        this.anims.create({ 
+            key: 'orcAndando', 
+            frames: this.anims.generateFrameNumbers('orc', { start: 0, end: 3 }), 
+            frameRate: 6, 
+            repeat: -1 
+        });
+        
+        this.anims.create({ 
+            key: 'orcAtacando', 
+            frames: this.anims.generateFrameNumbers('orc', { start: 0, end: 0 }),
+            frameRate: 1,
+            repeat: 0
+        });
+        
+        this.anims.create({ 
+            key: 'orcMorrendo', 
+            frames: this.anims.generateFrameNumbers('orc', { start: 40, end: 43 }),
+            frameRate: 4,
+            repeat: 0
+        });
     }
 
     updateHearts() {
         if (this.vidaTexto) {
             this.vidaTexto.setText(`${this.currentLives}/${this.maxLives}`);
         }
-
+    
         if (this.currentLives <= 0) {
+            // ===== SALVAR ESTADO NO GAMESTATE GLOBAL =====
             gameState.mundoAtual = 'MapaSombrio';
+            gameState.fragmentosColetados = this.fragmentosColetados;
+            gameState.vidas = this.currentLives;
+            
             this.scene.start('GameOverScene');
         }
     }
@@ -264,9 +338,7 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
             this.player.setVelocityX(0);
             this.isAttacking = true;
             
-            // ===== TOCAR SOM DE ATAQUE =====
             this.sounds.attack.play();
-            
             return;
         }
 
@@ -277,13 +349,56 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
                 // ===== VERIFICAR DANO NO ORC =====
                 if (this.orc && !this.orc.isDead) {
                     const distOrc = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.orc.x, this.orc.y);
-                    if (distOrc < 40) {
+                    if (distOrc < 60 && this.time.now - this.orc.lastHit > 500) {
                         this.orc.health--;
+                        this.orc.lastHit = this.time.now;
+                        
+                        console.log(`Orc tomou dano! Vida restante: ${this.orc.health}`);
+                        
                         if (this.orc.health <= 0) {
                             this.orc.isDead = true;
                             this.orc.setVelocityX(0);
-                            this.orc.play('orcMorrendo', true);
-                            this.orc.once('animationcomplete', () => this.orc.destroy());
+                            this.orc.setVelocityY(0);
+                            this.orc.isAttacking = false;
+                            
+                            this.physics.world.removeCollider(this.orc);
+                            
+                            this.tweens.add({
+                                targets: this.orc,
+                                alpha: 0,
+                                duration: 500,
+                                onComplete: () => {
+                                    if (this.orc && !this.orc.destroyed) {
+                                        this.orc.destroy();
+                                        this.orc = null;
+                                        console.log("Orc destruído!");
+                                    }
+                                }
+                            });
+                        } else {
+                            const wasAttacking = this.orc.isAttacking;
+                            const currentVelocity = this.orc.body.velocity.x;
+                            
+                            this.orc.isAttacking = true;
+                            this.orc.setVelocityX(0);
+                            this.orc.setVelocityY(0);
+                            
+                            this.orc.play('orcAndando', true);
+                            this.orc.anims.pause();
+                            this.orc.setTint(0xff0000);
+                            
+                            this.time.delayedCall(200, () => {
+                                if (this.orc && !this.orc.isDead) {
+                                    this.orc.clearTint();
+                                    this.orc.anims.resume();
+                                    this.orc.isAttacking = false;
+                                    
+                                    this.orc.play('orcAndando', true);
+                                    if (Math.abs(currentVelocity) > 5) {
+                                        this.orc.setVelocityX(currentVelocity);
+                                    }
+                                }
+                            });
                         }
                     }
                 }
@@ -291,8 +406,17 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
                 // ===== VERIFICAR DANO NO INIMIGO =====
                 if (this.inimigo && !this.inimigo.isDead) {
                     const distInimigo = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.inimigo.x, this.inimigo.y);
-                    if (distInimigo < 40) {
+                    if (distInimigo < 60 && this.time.now - (this.inimigo.lastHit || 0) > 500) {
                         this.inimigo.health--;
+                        this.inimigo.lastHit = this.time.now;
+                        
+                        this.inimigo.setTint(0xff0000);
+                        this.time.delayedCall(150, () => {
+                            if (this.inimigo && !this.inimigo.isDead) {
+                                this.inimigo.clearTint();
+                            }
+                        });
+                        
                         if (this.inimigo.health <= 0) {
                             this.inimigo.isDead = true;
                             this.inimigo.setVelocityX(0);
@@ -322,14 +446,12 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
             this.player.setVelocityX(0);
             this.isWalking = false;
             
-            // PARAR SOM DE PASSOS IMEDIATAMENTE
             if (this.stepSoundPlaying) {
                 this.sounds.step.stop();
                 this.stepSoundPlaying = false;
             }
         }
 
-        // ===== VERIFICAÇÃO ADICIONAL =====
         if (!isMoving || Math.abs(this.player.body.velocity.x) < 50) {
             this.isWalking = false;
             if (this.stepSoundPlaying) {
@@ -348,7 +470,6 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
             this.player.anims.play('jump', true);
             this.jumpCount++;
             
-            // ===== TOCAR SOM DE PULO =====
             this.sounds.jump.play();
         } else if (!this.player.body.blocked.down) {
             this.player.anims.play(this.player.body.velocity.y < 0 ? 'jump' : 'fall', true);
@@ -365,26 +486,57 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
             return;
         }
 
-        // ===== INTELIGÊNCIA ARTIFICIAL DOS INIMIGOS =====
-        if (this.orc && !this.orc.isDead) {
+        // ===== IA CORRIGIDA DO ORC (SEM TREMULAÇÃO) =====
+        if (this.orc && !this.orc.isDead && !this.orc.isAttacking && !this.orc.destroyed) {
+            const currentTime = Date.now();
             const distance = Phaser.Math.Distance.Between(this.orc.x, this.orc.y, this.player.x, this.player.y);
-            if (distance < 150) {
-                this.orc.setVelocityX(this.orc.x < this.player.x ? 50 : -50);
-                this.orc.flipX = this.orc.x > this.player.x;
-                if (distance < 40 && !this.orc.isAttacking) {
-                    this.orc.play('orcAtacando', true);
-                    this.orc.isAttacking = true;
-                } else if (distance >= 40 && this.orc.isAttacking) {
-                    this.orc.play('orcAndando', true);
-                    this.orc.isAttacking = false;
+            
+            const directionChangeCooldown = 800;
+            
+            if (distance < 120) {
+                // ===== PERSEGUIR COM ZONA MORTA =====
+                const speed = 40;
+                const deadZone = 25;
+                
+                if (currentTime - this.orc.lastDirectionChange > directionChangeCooldown) {
+                    if (this.player.x > this.orc.x + deadZone) {
+                        this.orc.setVelocityX(speed);
+                        this.orc.flipX = false;
+                        this.orc.patrolDirection = 1;
+                        this.orc.lastDirectionChange = currentTime;
+                    } else if (this.player.x < this.orc.x - deadZone) {
+                        this.orc.setVelocityX(-speed);
+                        this.orc.flipX = true;
+                        this.orc.patrolDirection = -1;
+                        this.orc.lastDirectionChange = currentTime;
+                    }
                 }
+                
             } else {
-                this.orc.setVelocityX(0);
-                if (!this.orc.isAttacking) this.orc.play('orcAndando', true);
+                // ===== PATRULHAMENTO ESTÁVEL =====
+                const patrolSpeed = 25;
+                
+                const nearLeftEdge = this.orc.x <= 80;
+                const nearRightEdge = this.orc.x >= 720;
+                const hitWall = this.orc.body.blocked.left || this.orc.body.blocked.right;
+                
+                if ((nearLeftEdge || nearRightEdge || hitWall) && 
+                    currentTime - this.orc.lastDirectionChange > 500) {
+                    
+                    this.orc.patrolDirection *= -1;
+                    this.orc.flipX = this.orc.patrolDirection < 0;
+                    this.orc.lastDirectionChange = currentTime;
+                }
+                
+                this.orc.setVelocityX(patrolSpeed * this.orc.patrolDirection);
+            }
+            
+            if (this.orc.anims.currentAnim?.key !== 'orcAndando') {
+                this.orc.play('orcAndando', true);
             }
         }
 
-        // ===== INTELIGÊNCIA DO INIMIGO PEQUENO =====
+        // ===== IA DO INIMIGO PEQUENO =====
         if (this.inimigo && !this.inimigo.isDead) {
             const distToPlayer = Phaser.Math.Distance.Between(this.inimigo.x, this.inimigo.y, this.player.x, this.player.y);
             if (distToPlayer < 150) {
