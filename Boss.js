@@ -12,7 +12,7 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.load.image('heart', 'assets/Hearts.png');
 
         this.load.spritesheet('itens', 'assets/rpgItems.png', { frameWidth: 16, frameHeight: 16 });
-        this.load.spritesheet('inimigos', 'assets/enemies-spritesheet.png', { frameWidth: 16, frameHeight: 16 });
+        this.load.spritesheet('inimigos', 'assets/enemies-spritesheet.png', { frameWidth: 20, frameHeight: 20 });
         this.load.spritesheet('adventurer', 'assets/adventurer-Sheet.png', { frameWidth: 50, frameHeight: 37 });
         
         for (let i = 1; i <= 6; i++) {
@@ -37,7 +37,7 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.load.audio('attackSound', 'assets/sounds/ataque.wav');
         this.load.audio('damageSound', 'assets/sounds/dano.wav');
         this.load.audio('collectSound', 'assets/sounds/fragmento.wav');
-        // this.load.audio('bossBgMusic', 'assets/sounds/boss_music.mp3'); // Adicione se tiver música épica
+        this.load.audio('bossBgMusic', 'assets/sounds/Treachery.mp3');
         // this.load.audio('bossAttackSound', 'assets/sounds/boss_attack.wav'); // Som específico do boss
         // this.load.audio('bossDeathSound', 'assets/sounds/boss_death.wav'); // Som de morte do boss
         // this.load.audio('victorySound', 'assets/sounds/victory.wav'); // Som de vitória
@@ -119,7 +119,7 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
     // ===== CONFIGURAÇÃO DE ÁUDIO DO BOSS =====
     setupBossAudio() {
         this.bossAudio = {
-            // bgMusic: this.sound.add('bossBgMusic', { volume: 0.4, loop: true }),
+            bgMusic: this.sound.add('bossBgMusic', { loop: true, volume: 0.3 }),
             // bossAttack: this.sound.add('bossAttackSound', { volume: 0.6 }),
             // bossDeath: this.sound.add('bossDeathSound', { volume: 0.8 }),
             playerDamage: this.sound.add('damageSound', { volume: 0.7 }),
@@ -129,6 +129,8 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
             collect: this.sound.add('collectSound', { volume: 0.6 })
             // victory: this.sound.add('victorySound', { volume: 0.9 })
         };
+
+        this.bossAudio.bgMusic.play();
 
         this.stepSoundPlaying = false;
         
@@ -200,7 +202,7 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
 
     setupAnimations() {
         this.anims.create({ key: 'andarInimigo', frames: this.anims.generateFrameNumbers('inimigos', { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
-        this.anims.create({ key: 'inimigoMorrendo', frames: this.anims.generateFrameNumbers('inimigos', { start: 4, end: 5 }), frameRate: 6, repeat: 0 });
+        this.anims.create({ key: 'inimigoMorrendo', frames: this.anims.generateFrameNumbers('inimigos', { start: 2, end: 3 }), frameRate: 6, repeat: 0 });
         this.anims.create({ key: 'idle', frames: this.anims.generateFrameNumbers('adventurer', { start: 0, end: 3 }), frameRate: 6, repeat: -1 });
         this.anims.create({ key: 'run', frames: this.anims.generateFrameNumbers('adventurer', { start: 8, end: 13 }), frameRate: 12, repeat: -1 });
         this.anims.create({ key: 'jump', frames: this.anims.generateFrameNumbers('adventurer', { start: 22, end: 22 }), frameRate: 1, repeat: 0 });
@@ -248,10 +250,10 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.demon = this.physics.add.sprite(400, 350, 'demon_idle_1').setScale(1.5);
         this.demon.play('demonAndando');
         this.demon.setCollideWorldBounds(true);
-        this.demon.setSize(80, 120);
+        this.demon.setSize(80, 150);
         this.demon.setOffset(100, 40);
-        this.demon.health = 50;
-        this.demon.maxHealth = 50;
+        this.demon.health = 100;
+        this.demon.maxHealth = 100;
         this.demon.isDead = false;
         this.demon.isAttacking = false;
         this.demon.isBoss = true;
@@ -338,10 +340,9 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
     updateHearts() {
         if (this.vidaTexto) this.vidaTexto.setText(`${this.currentLives}/3`);
         if (this.currentLives <= 0) {
-            // ===== PARAR MÚSICA DO BOSS AO MORRER =====
-            // if (this.bossAudio.bgMusic) {
-            //     this.bossAudio.bgMusic.stop();
-            // }
+             if (this.bossAudio.bgMusic && this.bossAudio.bgMusic.isPlaying) {
+        this.bossAudio.bgMusic.stop();
+    }
             
             gameState.fragmentosColetados = 3;
             gameState.mundoAtual = 'Boss';
@@ -461,6 +462,10 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
                             // ===== BOSS MORREU =====
                             alvo.isDead = true;
                             alvo.setVelocityX(0);
+
+                            if (this.bossAudio.bgMusic && this.bossAudio.bgMusic.isPlaying) {
+                        this.bossAudio.bgMusic.stop();
+                        }
                             
                             console.log("🎉 BOSS DERROTADO!");
                             

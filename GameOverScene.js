@@ -22,7 +22,7 @@ class GameOverScene extends Phaser.Scene {
             
         // ===== MÚSICA =====
         this.music = this.sound.add('gameover_music', {
-            volume: 0.5,
+            volume: 0.2,
             loop: false
         });
         this.music.play();

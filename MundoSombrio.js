@@ -11,7 +11,7 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.load.image('heart', 'assets/Hearts.png');
 
         this.load.spritesheet('itens', 'assets/rpgItems.png', { frameWidth: 16, frameHeight: 16 });
-        this.load.spritesheet('inimigos', 'assets/enemies-spritesheet.png', { frameWidth: 16, frameHeight: 16 });
+        this.load.spritesheet('inimigos', 'assets/enemies-spritesheet.png', { frameWidth: 20, frameHeight: 20 });
         this.load.spritesheet('adventurer', 'assets/adventurer-Sheet.png', { frameWidth: 50, frameHeight: 37 });
         this.load.spritesheet('orc', 'assets/Orc.png', { frameWidth: 100, frameHeight: 64 });
 
@@ -26,7 +26,7 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
 
     create(data) {
         this.currentLives = data?.vidas ?? 3;
-        this.fragmentosColetados = data?.fragmentosColetados || 0;
+        this.fragmentosColetados = 0;
 
         // ===== CONFIGURAÇÃO DE ÁUDIO =====
         this.setupAudio();
@@ -258,8 +258,8 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
     }
 
     setupAnimations() {
-        this.anims.create({ key: 'andarInimigo', frames: this.anims.generateFrameNumbers('inimigos', { start: 24, end: 25 }), frameRate: 4, repeat: -1 });
-        this.anims.create({ key: 'inimigoMorrendo', frames: this.anims.generateFrameNumbers('inimigos', { start: 26, end: 27 }), frameRate: 6, repeat: 0 });
+        this.anims.create({ key: 'andarInimigo', frames: this.anims.generateFrameNumbers('inimigos', { start: 0, end: 1 }), frameRate: 4, repeat: -1 });
+        this.anims.create({ key: 'inimigoMorrendo', frames: this.anims.generateFrameNumbers('inimigos', { start: 2, end: 3 }), frameRate: 6, repeat: 0 });
         this.anims.create({ key: 'idle', frames: this.anims.generateFrameNumbers('adventurer', { start: 0, end: 3 }), frameRate: 6, repeat: -1 });
         this.anims.create({ key: 'run', frames: this.anims.generateFrameNumbers('adventurer', { start: 8, end: 13 }), frameRate: 12, repeat: -1 });
         this.anims.create({ key: 'jump', frames: this.anims.generateFrameNumbers('adventurer', { start: 22, end: 22 }), frameRate: 1, repeat: 0 });
