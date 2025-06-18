@@ -9,6 +9,10 @@ class GameOverScene extends Phaser.Scene {
     }
 
     create() {
+        // ===== PARAR TODOS OS SONS DE TODAS AS CENAS IMEDIATAMENTE =====
+        this.sound.stopAll();
+        console.log("🔇 TODOS OS SONS DO JOGO FORAM PARADOS!");
+
         // ===== USAR DIMENSÕES REAIS DA TELA DO JOGO =====
         const gameWidth = this.cameras.main.width;
         const gameHeight = this.cameras.main.height;
@@ -19,13 +23,18 @@ class GameOverScene extends Phaser.Scene {
             
         // ===== FORÇAR A IMAGEM A COBRIR EXATAMENTE AS DIMENSÕES DA TELA =====
         bg.setDisplaySize(gameWidth, gameHeight);
+
+        // ===== AGUARDAR UM POUCO ANTES DE TOCAR A MÚSICA DE DERROTA =====
+        this.time.delayedCall(300, () => {
+            // ===== MÚSICA DE GAME OVER (ÚNICA) =====
+            this.music = this.sound.add('gameover_music', {
+                volume: 0.3,
+                loop: false
+            });
             
-        // ===== MÚSICA =====
-        this.music = this.sound.add('gameover_music', {
-            volume: 0.2,
-            loop: false
+            this.music.play();
+            console.log("🎵 Música de Game Over iniciada!");
         });
-        this.music.play();
 
         // ===== PEGAR FRAGMENTOS DO GAMESTATE GLOBAL =====
         const fragmentosColetados = gameState.fragmentosColetados || 0;
@@ -91,7 +100,15 @@ class GameOverScene extends Phaser.Scene {
                     drawNormal();
                     text.setColor('#d0c5aa');
                 })
-                .on('pointerdown', callback);
+                .on('pointerdown', () => {
+                    // ===== PARAR MÚSICA ANTES DE SAIR =====
+                    if (this.music && this.music.isPlaying) {
+                        this.music.stop();
+                        console.log("🔇 Música de Game Over parada!");
+                    }
+                    
+                    callback();
+                });
 
             return { graphics, text, hitArea };
         };
@@ -106,7 +123,7 @@ class GameOverScene extends Phaser.Scene {
             btnY,
             'Reiniciar Fase',
             () => {
-                this.music.stop();
+                console.log("🔄 Reiniciando fase...");
                 
                 // ===== RESETAR GAMESTATE PARA REINICIAR =====
                 gameState.vidas = 3;
@@ -126,7 +143,10 @@ class GameOverScene extends Phaser.Scene {
             btnY,
             'Menu Principal',
             () => {
-                this.music.stop();
+                console.log("🏠 Voltando ao menu principal...");
+                
+                // ===== PARAR TODOS OS SONS ANTES DE RECARREGAR =====
+                this.sound.stopAll();
                 
                 // ===== RESETAR GAMESTATE COMPLETAMENTE =====
                 gameState.vidas = 3;
@@ -148,6 +168,43 @@ class GameOverScene extends Phaser.Scene {
 
         // ===== EFEITO DE FADE IN =====
         this.cameras.main.fadeIn(500, 0, 0, 0);
+
+        // ===== CONTROLE DE TECLADO PARA REINICIAR =====
+        this.input.keyboard.on('keydown-R', () => {
+            console.log("⌨️ Tecla R pressionada - Reiniciando...");
+            if (this.music && this.music.isPlaying) {
+                this.music.stop();
+            }
+            
+            gameState.vidas = 3;
+            gameState.fragmentosColetados = 0;
+            
+            if (gameState.mundoAtual) {
+                this.scene.start(gameState.mundoAtual);
+            } else {
+                this.scene.start('CenaJogo');
+            }
+        });
+
+        // ===== CONTROLE DE TECLADO PARA MENU =====
+        this.input.keyboard.on('keydown-M', () => {
+            console.log("⌨️ Tecla M pressionada - Menu Principal...");
+            this.sound.stopAll();
+            gameState.vidas = 3;
+            gameState.fragmentosColetados = 0;
+            gameState.mundoAtual = null;
+            window.location.reload();
+        });
+    }
+
+    // ===== MÉTODO PARA SER CHAMADO QUANDO A CENA É DESTRUÍDA =====
+    shutdown() {
+        // ===== GARANTIR QUE TODOS OS SONS PARAM =====
+        if (this.music && this.music.isPlaying) {
+            this.music.stop();
+        }
+        this.sound.stopAll();
+        console.log("🗑️ GameOverScene destruída - todos os sons parados!");
     }
 }
 

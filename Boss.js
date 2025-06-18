@@ -38,9 +38,6 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.load.audio('damageSound', 'assets/sounds/dano.wav');
         this.load.audio('collectSound', 'assets/sounds/fragmento.wav');
         this.load.audio('bossBgMusic', 'assets/sounds/Treachery.mp3');
-        // this.load.audio('bossAttackSound', 'assets/sounds/boss_attack.wav'); // Som específico do boss
-        // this.load.audio('bossDeathSound', 'assets/sounds/boss_death.wav'); // Som de morte do boss
-        // this.load.audio('victorySound', 'assets/sounds/victory.wav'); // Som de vitória
     }
 
     create(data) {
@@ -81,7 +78,7 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.inimigo.setBounce(1, 0);
         this.inimigo.setCollideWorldBounds(true);
         this.physics.add.collider(this.inimigo, this.layer1);
-        this.inimigo.health = 1;
+        this.inimigo.health = 3; // 3 hits para inimigo pequeno
         this.inimigo.isDead = false;
         this.inimigo.isAttacking = false;
 
@@ -116,33 +113,22 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.orc = null;
     }
 
-    // ===== CONFIGURAÇÃO DE ÁUDIO DO BOSS =====
     setupBossAudio() {
         this.bossAudio = {
             bgMusic: this.sound.add('bossBgMusic', { loop: true, volume: 0.3 }),
-            // bossAttack: this.sound.add('bossAttackSound', { volume: 0.6 }),
-            // bossDeath: this.sound.add('bossDeathSound', { volume: 0.8 }),
             playerDamage: this.sound.add('damageSound', { volume: 0.7 }),
             step: this.sound.add('stepSound', { volume: 0.3 }),
             jump: this.sound.add('jumpSound', { volume: 0.5 }),
             attack: this.sound.add('attackSound', { volume: 0.5 }),
             collect: this.sound.add('collectSound', { volume: 0.6 })
-            // victory: this.sound.add('victorySound', { volume: 0.9 })
         };
 
         this.bossAudio.bgMusic.play();
-
         this.stepSoundPlaying = false;
-        
-        // Iniciar música épica do boss (se disponível)
-        // if (this.bossAudio.bgMusic) {
-        //     this.bossAudio.bgMusic.play();
-        // }
         
         console.log("Sistema de áudio do BOSS configurado!");
     }
 
-    // ===== CONTROLE DE SOM DE PASSOS =====
     updateStepSound() {
         const currentTime = this.time.now;
         
@@ -198,6 +184,9 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.maxJumps = 2;
         this.transicaoFeita = false;
         this.isAttacking = false;
+        
+        // ===== CONTROLE DE ATAQUE ÚNICO =====
+        this.attackHasHit = false; // Flag para controlar se o ataque já acertou
     }
 
     setupAnimations() {
@@ -252,8 +241,8 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.demon.setCollideWorldBounds(true);
         this.demon.setSize(80, 150);
         this.demon.setOffset(100, 40);
-        this.demon.health = 50;
-        this.demon.maxHealth = 50;
+        this.demon.health =20; // ===== BOSS AGORA TEM 15 HITS =====
+        this.demon.maxHealth = 15;
         this.demon.isDead = false;
         this.demon.isAttacking = false;
         this.demon.isBoss = true;
@@ -263,55 +252,43 @@ export default class MundoNormalScene_1 extends Phaser.Scene {
         this.demon.body.setGravityY(300);
         this.demon.setDepth(1);
         
-        // ===== BARRA DE VIDA DO BOSS REMOVIDA =====
-        // Não criar mais barra de vida nem nome do boss
-        
-        console.log(`Boss criado na posição: x=${this.demon.x}, y=${this.demon.y}, no chão sem barra de vida`);
+        console.log(`Boss criado na posição: x=${this.demon.x}, y=${this.demon.y}, vida: ${this.demon.health} hits`);
     }
 
     setupOverlaps() {
-        // ===== COLISÃO COM BOSS - SÓ ATACA MUITO PERTO =====
+        // ===== DETECÇÃO DE PROXIMIDADE COM BOSS (SEM DANO IMEDIATO) =====
         this.physics.add.overlap(this.player, this.demon, () => {
-            if (!this.player.isInvulnerable && !this.demon.isDead) {
-                // ===== BOSS SÓ ATACA SE ESTIVER MUITO MUITO PERTO =====
-               const dx = Math.abs(this.player.x - this.demon.x);
-const dy = Math.abs(this.player.y - this.demon.y);
+            if (!this.demon.isDead && !this.demon.isAttacking && this.time.now > this.demon.attackCooldown) {
+                const dx = Math.abs(this.player.x - this.demon.x);
+                const dy = Math.abs(this.player.y - this.demon.y);
 
-if (dx < 60 && dy < 80 && !this.demon.isAttacking && this.time.now > this.demon.attackCooldown) {
-                    // SÓ ATACA SE ESTIVER MUITO PERTO (30 pixels)
+                // ===== BOSS INICIA ATAQUE QUANDO PLAYER ESTÁ PERTO =====
+                if (dx < 60 && dy < 80) {
                     this.demon.isAttacking = true;
-                    this.demon.setVelocityX(0); // Parar movimento durante ataque
+                    this.demon.setVelocityX(0);
                     
-                    // ===== VIRAR PARA O PLAYER ANTES DE ATACAR - CORRIGIDO =====
+                    // ===== VIRAR PARA O PLAYER ANTES DE ATACAR =====
                     if (this.player.x > this.demon.x) {
-                        this.demon.setFlipX(true); // INVERTIDO: Olhar para direita (com flip)
+                        this.demon.setFlipX(true);
                     } else {
-                        this.demon.setFlipX(false); // INVERTIDO: Olhar para esquerda (sem flip)
+                        this.demon.setFlipX(false);
                     }
                     
                     this.demon.play('demonAtacando', true);
-                    this.demon.attackCooldown = this.time.now + 2000; // Cooldown de 2 segundos
+                    this.demon.attackCooldown = this.time.now + 2000;
                     
-                    this.currentLives--;
-                    this.updateHearts();
+                    console.log("🗡️ Boss iniciou ataque! Player pode escapar...");
                     
-                    // ===== SOM DE DANO DO PLAYER =====
-                    this.bossAudio.playerDamage.play();
-                    
-                    this.player.isInvulnerable = true;
-
-                    this.time.delayedCall(1000, () => {
-                        this.player.isInvulnerable = false;
-                    });
-
+                    // ===== VERIFICAR DANO APENAS NO FINAL DA ANIMAÇÃO =====
                     this.demon.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+                        this.checkBossDamageAtAnimationEnd();
+                        
                         this.demon.isAttacking = false;
                         if (!this.demon.isDead) {
                             this.demon.play('demonAndando', true);
                         }
                     });
                 }
-                // SE NÃO ESTIVER MUITO PERTO, BOSS NÃO ATACA MAS CONTINUA PERSEGUINDO
             }
         }, null, this);
 
@@ -321,13 +298,41 @@ if (dx < 60 && dy < 80 && !this.demon.isAttacking && this.time.now > this.demon.
                 this.currentLives--;
                 this.updateHearts();
                 
-                // ===== SOM DE DANO =====
                 this.bossAudio.playerDamage.play();
                 
                 this.player.isInvulnerable = true;
                 this.time.delayedCall(1000, () => this.player.isInvulnerable = false);
             }
         }, null, this);
+    }
+
+    // ===== NOVA FUNÇÃO: VERIFICAR DANO APENAS NO FINAL DO ATAQUE =====
+    checkBossDamageAtAnimationEnd() {
+        if (!this.player.isInvulnerable && !this.demon.isDead) {
+            const dx = Math.abs(this.player.x - this.demon.x);
+            const dy = Math.abs(this.player.y - this.demon.y);
+            
+            // ===== SÓ APLICA DANO SE PLAYER AINDA ESTIVER NO RANGE NO FINAL =====
+            if (dx < 80 && dy < 100) {
+                console.log("💥 Player estava no range no final do ataque! Tomou dano!");
+                
+                this.currentLives--;
+                this.updateHearts();
+                
+                this.bossAudio.playerDamage.play();
+                
+                this.player.isInvulnerable = true;
+                this.time.delayedCall(1000, () => {
+                    this.player.isInvulnerable = false;
+                });
+                
+                // ===== EFEITO VISUAL DE DANO (OPCIONAL) =====
+                this.cameras.main.shake(200, 0.02);
+                
+            } else {
+                console.log("✅ Player escapou! Estava fora do range no final do ataque!");
+            }
+        }
     }
 
     setupLiraSave() {
@@ -341,9 +346,9 @@ if (dx < 60 && dy < 80 && !this.demon.isAttacking && this.time.now > this.demon.
     updateHearts() {
         if (this.vidaTexto) this.vidaTexto.setText(`${this.currentLives}/3`);
         if (this.currentLives <= 0) {
-             if (this.bossAudio.bgMusic && this.bossAudio.bgMusic.isPlaying) {
-        this.bossAudio.bgMusic.stop();
-    }
+            if (this.bossAudio.bgMusic && this.bossAudio.bgMusic.isPlaying) {
+                this.bossAudio.bgMusic.stop();
+            }
             
             gameState.fragmentosColetados = 3;
             gameState.mundoAtual = 'Boss';
@@ -353,7 +358,6 @@ if (dx < 60 && dy < 80 && !this.demon.isAttacking && this.time.now > this.demon.
     }
 
     transicaoParaMapa() {
-        // ===== PARAR TODOS OS SONS ANTES DA TRANSIÇÃO =====
         if (this.stepSoundPlaying) {
             this.bossAudio.step.stop();
             this.stepSoundPlaying = false;
@@ -379,7 +383,6 @@ if (dx < 60 && dy < 80 && !this.demon.isAttacking && this.time.now > this.demon.
     movimentarJogador() {
         let isMoving = false;
 
-        // ===== MOVIMENTO COM SOM DE PASSOS =====
         if (this.cursors.left.isDown || this.keys.left.isDown) {
             this.player.setVelocityX(-160);
             this.player.flipX = true;
@@ -394,14 +397,12 @@ if (dx < 60 && dy < 80 && !this.demon.isAttacking && this.time.now > this.demon.
             this.player.setVelocityX(0);
             this.isWalking = false;
             
-            // PARAR SOM DE PASSOS IMEDIATAMENTE
             if (this.stepSoundPlaying) {
                 this.bossAudio.step.stop();
                 this.stepSoundPlaying = false;
             }
         }
 
-        // ===== VERIFICAÇÃO ADICIONAL =====
         if (!isMoving || Math.abs(this.player.body.velocity.x) < 50) {
             this.isWalking = false;
             if (this.stepSoundPlaying) {
@@ -410,7 +411,6 @@ if (dx < 60 && dy < 80 && !this.demon.isAttacking && this.time.now > this.demon.
             }
         }
 
-        // ===== PULO COM SOM =====
         const isJumpPressed = Phaser.Input.Keyboard.JustDown(this.cursors.up) ||
             Phaser.Input.Keyboard.JustDown(this.keys.up) || Phaser.Input.Keyboard.JustDown(this.keys.space);
 
@@ -419,7 +419,6 @@ if (dx < 60 && dy < 80 && !this.demon.isAttacking && this.time.now > this.demon.
             this.player.anims.play('jump', true);
             this.jumpCount++;
             
-            // ===== SOM DE PULO =====
             this.bossAudio.jump.play();
         } else if (!this.player.body.blocked.down) {
             this.player.anims.play(this.player.body.velocity.y < 0 ? 'jump' : 'fall', true);
@@ -430,26 +429,32 @@ if (dx < 60 && dy < 80 && !this.demon.isAttacking && this.time.now > this.demon.
         }
     }
 
-    atualizarBarraVidaBoss() {
-        // ===== FUNÇÃO REMOVIDA - NÃO FAZ MAIS NADA =====
-        // Barra de vida do boss foi removida
-    }
-
+    // ===== FUNÇÃO DE DANO CORRIGIDA =====
     verificarDanoInimigos() {
+        // Só executa se estiver atacando e o ataque ainda não acertou
+        if (!this.isAttacking || this.attackHasHit) {
+            return;
+        }
+
         const atacar = (alvo) => {
             if (alvo && !alvo.isDead) {
                 const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, alvo.x, alvo.y);
-                if (dist < 60) {
-                    alvo.health -= 2; // Dano maior no boss
+                
+                // ===== DISTÂNCIA DE ATAQUE ADEQUADA =====
+                if (dist < 80) { // Aumentei a distância de ataque para 80 pixels
+                    // ===== MARCAR QUE O ATAQUE JÁ ACERTOU =====
+                    this.attackHasHit = true;
+                    
+                    // ===== DANO FIXO DE 1 HIT =====
+                    alvo.health -= 1;
+                    
+                    console.log(`${alvo === this.demon ? 'Boss' : 'Inimigo'} tomou dano! Vida restante: ${alvo.health}/${alvo === this.demon ? this.demon.maxHealth : '3'}`);
                     
                     if (alvo === this.demon) {
                         // ===== BOSS TOMOU DANO =====
-                        this.atualizarBarraVidaBoss();
-                        
                         if (alvo.health > 0) {
                             alvo.play('demonDano', true);
                             
-                            // Voltar para animação normal após tomar dano
                             alvo.once('animationcomplete', () => {
                                 if (!alvo.isDead && !alvo.isAttacking) {
                                     alvo.play('demonAndando', true);
@@ -457,57 +462,29 @@ if (dx < 60 && dy < 80 && !this.demon.isAttacking && this.time.now > this.demon.
                             });
                         }
                         
-                        console.log(`Boss tomou dano! Vida restante: ${alvo.health}`);
-                        
                         if (alvo.health <= 0) {
                             // ===== BOSS MORREU =====
                             alvo.isDead = true;
                             alvo.setVelocityX(0);
 
                             if (this.bossAudio.bgMusic && this.bossAudio.bgMusic.isPlaying) {
-                        this.bossAudio.bgMusic.stop();
-                        }
+                                this.bossAudio.bgMusic.stop();
+                            }
                             
                             console.log("🎉 BOSS DERROTADO!");
                             
-                            // Remover interface do boss
-                            if (this.bossNome) this.bossNome.destroy();
-                            if (this.barraVidaBossBG) this.barraVidaBossBG.destroy();
-                            if (this.barraVidaBossFG) this.barraVidaBossFG.destroy();
-                            if (this.vidaBossTexto) this.vidaBossTexto.destroy();
-                            
-                            // ===== ANIMAÇÃO DE MORTE ESPECÍFICA DO BOSS =====
                             alvo.play('demonMorrendo', true);
                             alvo.once('animationcomplete', () => alvo.destroy());
                         }
                         
                     } else if (alvo === this.inimigo) {
                         // ===== INIMIGO PEQUENO TOMOU DANO =====
-                        console.log(`Inimigo pequeno tomou dano! Vida restante: ${alvo.health}`);
-                        
                         if (alvo.health <= 0) {
                             alvo.isDead = true;
                             alvo.setVelocityX(0);
                             
-                            // ===== ANIMAÇÃO DE MORTE ESPECÍFICA DO INIMIGO =====
                             alvo.play('inimigoMorrendo', true);
                             alvo.once('animationcomplete', () => alvo.destroy());
-                        }
-                        
-                    } else {
-                        // ===== OUTROS INIMIGOS =====
-                        if (alvo.health <= 0) {
-                            alvo.isDead = true;
-                            alvo.setVelocityX(0);
-                            
-                            // Tentar animação específica do tipo
-                            const animKey = `${alvo.texture.key}Morrendo`;
-                            if (alvo.anims && alvo.anims.animationManager.exists(animKey)) {
-                                alvo.play(animKey, true);
-                                alvo.once('animationcomplete', () => alvo.destroy());
-                            } else {
-                                alvo.destroy(); // Destruir imediatamente se não houver animação
-                            }
                         }
                     }
                 }
@@ -527,47 +504,37 @@ if (dx < 60 && dy < 80 && !this.demon.isAttacking && this.time.now > this.demon.
         if (inimigo === this.demon) {
             const dist = Phaser.Math.Distance.Between(inimigo.x, inimigo.y, this.player.x, this.player.y);
             
-            // ===== BOSS SEMPRE PERSEGUE O PLAYER (range aumentado) =====
             if (!inimigo.isAttacking && dist < 500) {
                 const speed = 60;
-                const distanciaMinima = 15; // ZONA MORTA para evitar oscilação
+                const distanciaMinima = 15;
                 
-                // ===== MOVIMENTAÇÃO CORRIGIDA COM ZONA MORTA =====
                 if (this.player.x > inimigo.x + distanciaMinima) {
-                    // Player está à DIREITA do boss (com margem)
                     inimigo.setVelocityX(speed);
-                    inimigo.setFlipX(true); // Boss olha para DIREITA
+                    inimigo.setFlipX(true);
                 } else if (this.player.x < inimigo.x - distanciaMinima) {
-                    // Player está à ESQUERDA do boss (com margem)
                     inimigo.setVelocityX(-speed);
-                    inimigo.setFlipX(false); // Boss olha para ESQUERDA
+                    inimigo.setFlipX(false);
                 } else {
-                    // Player está na ZONA MORTA - boss para
                     inimigo.setVelocityX(0);
                 }
                 
-                // Tocar animação baseada no movimento
                 if (Math.abs(inimigo.body.velocity.x) > 5) {
-                    // Se está se movendo, animar caminhada
                     if (inimigo.anims.currentAnim?.key !== 'demonAndando') {
                         inimigo.play('demonAndando', true);
                     }
                 } else {
-                    // Se está parado, animar idle
                     if (inimigo.anims.currentAnim?.key !== 'demonIdle') {
                         inimigo.play('demonIdle', true);
                     }
                 }
                 
             } else if (!inimigo.isAttacking) {
-                // Parar movimento se MUITO longe
                 inimigo.setVelocityX(0);
                 if (inimigo.anims.currentAnim?.key !== 'demonIdle') {
                     inimigo.play('demonIdle', true);
                 }
             }
             
-            // ===== GARANTIR QUE BOSS FIQUE NO CHÃO =====
             if (inimigo.y < 300) {
                 inimigo.body.setVelocityY(100);
             }
@@ -575,7 +542,7 @@ if (dx < 60 && dy < 80 && !this.demon.isAttacking && this.time.now > this.demon.
             return;
         }
 
-        // ===== INTELIGÊNCIA DOS OUTROS INIMIGOS (mantém colisão normal) =====
+        // ===== INTELIGÊNCIA DOS OUTROS INIMIGOS =====
         const dist = Phaser.Math.Distance.Between(inimigo.x, inimigo.y, this.player.x, this.player.y);
 
         if (dist < 150) {
@@ -614,13 +581,13 @@ if (dx < 60 && dy < 80 && !this.demon.isAttacking && this.time.now > this.demon.
 
         if (this.player.body.blocked.down) this.jumpCount = 0;
 
-        // ===== ATAQUE COM SOM =====
+        // ===== ATAQUE COM CONTROLE DE HIT ÚNICO =====
         if (Phaser.Input.Keyboard.JustDown(this.keys.attack)) {
             this.player.anims.play('attack', true);
             this.player.setVelocityX(0);
             this.isAttacking = true;
+            this.attackHasHit = false; // ===== RESETAR FLAG DE HIT =====
             
-            // ===== SOM DE ATAQUE =====
             this.bossAudio.attack.play();
             
             return;
@@ -629,8 +596,10 @@ if (dx < 60 && dy < 80 && !this.demon.isAttacking && this.time.now > this.demon.
         if (this.isAttacking) {
             this.verificarDanoInimigos();
 
+            // ===== VERIFICAR SE A ANIMAÇÃO DE ATAQUE TERMINOU =====
             if (!this.player.anims.isPlaying || this.player.anims.currentAnim.key !== 'attack') {
                 this.isAttacking = false;
+                this.attackHasHit = false; // ===== RESETAR FLAG QUANDO ATAQUE TERMINA =====
             }
 
             return;
@@ -658,22 +627,10 @@ if (dx < 60 && dy < 80 && !this.demon.isAttacking && this.time.now > this.demon.
                     this.salvarTexto.setText('Lira foi salva!');
                     this.salvarTexto.setStyle({ fill: '#00ff00' });
 
-                    // ===== SOM DE SUCESSO =====
                     this.bossAudio.collect.play();
                     
-                    // ===== PARAR MÚSICA DO BOSS =====
-                    // if (this.bossAudio.bgMusic) {
-                    //     this.bossAudio.bgMusic.stop();
-                    // }
-
                     this.time.delayedCall(1500, () => {
-                        // ===== SOM DE VITÓRIA =====
-                        // if (this.bossAudio.victory) {
-                        //     this.bossAudio.victory.play();
-                        // }
-                        
                         this.time.delayedCall(1000, () => {
-                            // ===== PARAR TODOS OS SONS ANTES DA VITÓRIA =====
                             if (this.stepSoundPlaying) {
                                 this.bossAudio.step.stop();
                                 this.stepSoundPlaying = false;

@@ -364,24 +364,7 @@ export default class MundoNormalScene_2 extends Phaser.Scene {
         });
     }
 
-    transicaoParaMapa() {
-        // ===== PARAR TODOS OS SONS ANTES DA TRANSIÇÃO =====
-        if (this.stepSoundPlaying) {
-            this.sounds.step.stop();
-            this.stepSoundPlaying = false;
-        }
-        
-        Object.values(this.sounds).forEach(sound => {
-            if (sound.isPlaying) {
-                sound.stop();
-            }
-        });
-        
-        this.cameras.main.fadeOut(500, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => {
-            this.scene.restart();
-        });
-    }
+
 
     transicaoParaProximoMapa() {
         // ===== PARAR TODOS OS SONS ANTES DA TRANSIÇÃO =====
