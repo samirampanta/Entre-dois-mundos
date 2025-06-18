@@ -7,16 +7,13 @@ export default class MundoNormal extends Phaser.Scene {
         this.load.image('AllSprites', 'assets/AllSprites.png');
         this.load.tilemapTiledJSON('mapa', 'assets/mapa.json');
         
-
         this.load.spritesheet('adventurer', 'assets/adventurer-Sheet.png', {
             frameWidth: 50,
             frameHeight: 37
         });
 
-        this.load.spritesheet('hearts', 'assets/Hearts.png', {
-            frameWidth: 15,
-            frameHeight: 15
-        });
+        // ===== CORRIGIDO: CARREGAR COMO IMAGEM IGUAL AOS OUTROS MAPAS =====
+        this.load.image('heart', 'assets/Hearts.png');
 
         this.load.spritesheet('itens', 'assets/rpgItems.png', {
             frameWidth: 16,
@@ -53,9 +50,8 @@ export default class MundoNormal extends Phaser.Scene {
         const layer5 = map.createLayer('Camada de Blocos 5', tileset, 0, 0);
         const layer6 = map.createLayer('Camada de Blocos 6', tileset, 0, 0);
 
-        this.fragmentosColetados = 0;
-
-        this.textoFragmento = this.add.text(90, 10, 'Fragmentos: 0/4', {
+        // ===== CORRIGIDO: USAR FRAGMENTOS RECEBIDOS E MOSTRAR 0/3 =====
+        this.textoFragmento = this.add.text(90, 10, `Fragmentos: ${this.fragmentosColetados}/3`, {
             fontSize: '16px',
             fill: '#ffffff',
             fontFamily: 'Arial'
@@ -123,7 +119,7 @@ export default class MundoNormal extends Phaser.Scene {
 
         this.setupAnimations();
         this.setupControls();
-        this.setupPlayerStats();
+        this.setupPlayerStats(data); // ===== PASSAR DATA PARA SETUPPLAYERSTATS =====
 
         console.log("Camadas válidas:", map.layers.map(l => l.name));
     }
@@ -226,26 +222,35 @@ export default class MundoNormal extends Phaser.Scene {
         this.isAttacking = false;
     }
 
-    setupPlayerStats() {
-        this.maxLives = 4;
-        this.currentLives = 4;
-        this.heartIcons = [];
+    // ===== CORRIGIDO: SISTEMA DE VIDAS 3/3 IGUAL AOS OUTROS MAPAS =====
+    setupPlayerStats(data) {
+        this.maxLives = 3; // ===== CORRIGIDO: 3 VIDAS =====
+        this.currentLives = data?.vidas ?? 3; // ===== USAR VIDAS RECEBIDAS OU 3 =====
 
-        for (let i = 0; i < this.maxLives; i++) {
-            const heart = this.add.sprite(20 + i * 12, 20, 'hearts', 0).setScale(2).setScrollFactor(0);
-            this.heartIcons.push(heart);
+        // ===== USAR O MESMO PADRÃO DOS OUTROS MAPAS =====
+        this.heartIcon = this.add.image(20, 20, 'heart').setScale(0.3).setScrollFactor(0);
+        this.vidaTexto = this.add.text(40, 10, `${this.currentLives}/${this.maxLives}`, {
+            fontSize: '16px',
+            fill: '#ffffff',
+            fontFamily: 'Arial'
+        }).setScrollFactor(0);
+
+        this.updateHearts();
+    }
+
+    // ===== FUNÇÃO DE ATUALIZAR CORAÇÕES IGUAL AOS OUTROS MAPAS =====
+    updateHearts() {
+        if (this.vidaTexto) {
+            this.vidaTexto.setText(`${this.currentLives}/${this.maxLives}`);
         }
-
-        this.updateHearts = () => {
-            for (let i = 0; i < this.maxLives; i++) {
-                const frame = i < this.currentLives ? 0 : 1;
-                this.heartIcons[i].setFrame(frame);
-            }
-        };
-
-        if (this.currentLives > 0) {
-            this.currentLives--;
-            this.updateHearts();
+    
+        if (this.currentLives <= 0) {
+            // ===== SALVAR ESTADO NO GAMESTATE GLOBAL =====
+            gameState.mundoAtual = 'CenaJogo';
+            gameState.fragmentosColetados = this.fragmentosColetados;
+            gameState.vidas = this.currentLives;
+            
+            this.scene.start('GameOverScene');
         }
     }
 
@@ -282,9 +287,8 @@ export default class MundoNormal extends Phaser.Scene {
         this.cameras.main.once('camerafadeoutcomplete', () => {
             this.scene.start('Mapa1', {
                 voltarPeloLadoEsquerdo: false,
-                fragmentosColetados: this.fragmentosColetados
-            }, {
-                vidas: this.currentLives,
+                fragmentosColetados: this.fragmentosColetados,
+                vidas: this.currentLives, // ===== PASSAR AS VIDAS CORRETAMENTE =====
                 mapaAtual: 'mapa1.json'
             });
         });
